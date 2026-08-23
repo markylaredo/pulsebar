@@ -109,10 +109,8 @@ If you would like to support continued development, you can [send a tip through 
 
 [![Support PulseBar on PayPal](https://img.shields.io/badge/Support-PayPal-0070BA?logo=paypal&logoColor=white)](https://paypal.me/markanthony495)
 
-**Topics:** `macos` · `swift` · `swiftui` · `menu-bar-app` · `system-monitor` · `apple-silicon` · `performance-monitoring`
 
 ## License
 
 PulseBar is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). Personal and other non-commercial use is welcome. Selling PulseBar, including modified copies, requires a separate written commercial license from the copyright holder.
 
-Created by **Mark Anthony**.

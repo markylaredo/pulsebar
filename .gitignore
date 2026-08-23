@@ -1,0 +1,6 @@
+.build/
+.codebase-memory/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+.build-release/

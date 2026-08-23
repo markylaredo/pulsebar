@@ -1,0 +1,210 @@
+import AppKit
+import Observation
+import SwiftUI
+
+@MainActor
+final class StatusBarController: NSObject, NSPopoverDelegate {
+    private let monitor: SystemMonitor
+    private let openSettings: () -> Void
+    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let popover = NSPopover()
+    private let labelModel: StatusItemLabelModel
+    private var labelHostingView: NSHostingView<StatusItemLabel>?
+    private var statusItemLengthTask: Task<Void, Never>?
+    private var defaultsObserver: NSObjectProtocol?
+
+    init(monitor: SystemMonitor, openSettings: @escaping () -> Void) {
+        self.monitor = monitor
+        self.openSettings = openSettings
+        labelModel = StatusItemLabelModel(presentation: .make(metrics: monitor.metrics))
+        super.init()
+        configureStatusItem()
+        configurePopover()
+        observeMetrics()
+        observeSettings()
+        updateStatusItem(animated: false)
+    }
+
+    private func configureStatusItem() {
+        guard let button = statusItem.button else { return }
+        button.image = nil
+        button.title = ""
+        button.target = self
+        button.action = #selector(togglePopover(_:))
+        button.sendAction(on: [.leftMouseUp])
+
+        let hostingView = PassthroughHostingView(rootView: StatusItemLabel(model: labelModel))
+        hostingView.frame = button.bounds.insetBy(dx: 6, dy: 0)
+        hostingView.autoresizingMask = [.width, .height]
+        button.addSubview(hostingView)
+        labelHostingView = hostingView
+    }
+
+    private func configurePopover() {
+        popover.behavior = .transient
+        popover.animates = true
+        popover.contentSize = NSSize(width: 360, height: 570)
+        popover.delegate = self
+        popover.contentViewController = NSHostingController(
+            rootView: DashboardRootView(
+                monitor: monitor,
+                openSettings: { [weak self] in
+                    self?.popover.performClose(nil)
+                    self?.openSettings()
+                }
+            )
+        )
+    }
+
+    @objc
+    private func togglePopover(_ sender: Any?) {
+        guard let button = statusItem.button else { return }
+        if popover.isShown {
+            popover.performClose(sender)
+        } else {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            button.state = .on
+            NSApplication.shared.activate()
+        }
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        statusItem.button?.state = .off
+    }
+
+    private func updateStatusItem(animated: Bool) {
+        guard let button = statusItem.button else { return }
+        let presentation = MenuBarPresentation.make(metrics: monitor.metrics)
+        button.toolTip = presentation.accessibilityLabel
+        button.setAccessibilityLabel(presentation.accessibilityLabel)
+
+        if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            withAnimation(.easeInOut(duration: 0.24)) {
+                labelModel.presentation = presentation
+            }
+        } else {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                labelModel.presentation = presentation
+            }
+        }
+        scheduleStatusItemLength(for: presentation)
+    }
+
+    private func scheduleStatusItemLength(for presentation: MenuBarPresentation) {
+        let width: CGFloat
+        switch presentation.widthBehavior {
+        case .fixed:
+            width = presentation.preferredWidth
+        case .dynamic:
+            let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+            let textWidth = (presentation.text as NSString).size(withAttributes: [.font: font]).width
+            let iconWidth = CGFloat(presentation.parts.compactMap(\.symbolName).count) * 19
+            width = ceil(textWidth + iconWidth + 18)
+        }
+
+        statusItemLengthTask?.cancel()
+        statusItemLengthTask = Task { @MainActor [weak self] in
+            // NSStatusBarButton can be in the middle of an AppKit layout pass while
+            // SwiftUI publishes the new label. Resize on the following run-loop turn
+            // so the hosting view never asks its parent to lay out recursively.
+            await Task.yield()
+            guard !Task.isCancelled, let self else { return }
+            guard abs(self.statusItem.length - width) > 0.5 else { return }
+            self.statusItem.length = width
+        }
+    }
+
+    private func observeMetrics() {
+        withObservationTracking {
+            _ = monitor.metrics
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.updateStatusItem(animated: true)
+                self.observeMetrics()
+            }
+        }
+    }
+
+    private func observeSettings() {
+        defaultsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateStatusItem(animated: false)
+            }
+        }
+    }
+}
+
+@MainActor
+@Observable
+private final class StatusItemLabelModel {
+    var presentation: MenuBarPresentation
+
+    init(presentation: MenuBarPresentation) {
+        self.presentation = presentation
+    }
+}
+
+private struct StatusItemLabel: View {
+    @Bindable var model: StatusItemLabelModel
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if model.presentation.parts.isEmpty {
+                Image(systemName: "waveform.path.ecg")
+                Text("PulseBar")
+            } else {
+                HStack(spacing: 3) {
+                    ForEach(Array(model.presentation.parts.enumerated()), id: \.element.id) { index, part in
+                        if index > 0 {
+                            Text("·")
+                        }
+                        HStack(spacing: 0) {
+                            if let symbolName = part.symbolName {
+                                Image(systemName: symbolName)
+                                    .padding(.trailing, 3)
+                            }
+                            Text(part.prefix)
+                            Text(part.value)
+                                .contentTransition(.numericText(value: part.numericValue))
+                        }
+                        .frame(
+                            width: model.presentation.widthBehavior == .fixed ? part.reservedWidth : nil,
+                            alignment: .leading
+                        )
+                    }
+                }
+            }
+        }
+        .font(.system(size: NSFont.systemFontSize))
+        .monospacedDigit()
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel(model.presentation.accessibilityLabel)
+    }
+}
+
+@MainActor
+private final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+}
+
+private struct DashboardRootView: View {
+    let monitor: SystemMonitor
+    let openSettings: () -> Void
+    @AppStorage(SettingsKey.appearance) private var appearance = AppAppearance.system.rawValue
+
+    var body: some View {
+        DashboardView(openSettingsAction: openSettings)
+            .environment(monitor)
+            .preferredColorScheme(AppAppearance(rawValue: appearance)?.colorScheme)
+    }
+}

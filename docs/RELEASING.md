@@ -21,7 +21,7 @@ shasum -a 256 PulseBar.zip > PulseBar.zip.sha256
 6. Test the public installer after publishing:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/master/install.sh | bash
 ```
 
 Keep the asset names unchanged. GitHub routes the installer to those files through its stable `/releases/latest/download/` URLs.

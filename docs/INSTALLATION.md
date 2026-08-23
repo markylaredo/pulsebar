@@ -79,6 +79,8 @@ There is no public latest release yet, or the release does not contain both requ
 
 Check the repository's [Releases page](https://github.com/markylaredo/pulsebar/releases) and try again after a release is published.
 
+For maintainers, publishing a version tag runs the release workflow described in [RELEASING.md](RELEASING.md).
+
 ### Checksum verification failed
 
 The downloaded archive does not match its published checksum. The installer intentionally stops without installing it. Do not bypass this check; retry later or report the failed release.

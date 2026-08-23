@@ -1,0 +1,179 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, for example v1.0.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pulsebar-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, notarize, and publish
+    runs-on: macos-15-intel
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+
+    steps:
+      - name: Check out the release source
+        uses: actions/checkout@v4
+
+      - name: Validate release configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag must look like v1.0.0." >&2
+            exit 1
+          fi
+
+          required_secrets=(
+            MACOS_CERTIFICATE
+            MACOS_CERTIFICATE_PASSWORD
+            KEYCHAIN_PASSWORD
+            DEVELOPER_ID_APPLICATION
+            APPLE_ID
+            APPLE_TEAM_ID
+            APPLE_APP_PASSWORD
+          )
+
+          for secret_name in "${required_secrets[@]}"; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "Missing GitHub Actions secret: $secret_name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Run tests
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project PulseBar.xcodeproj \
+            -scheme PulseBar \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Import Developer ID certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          certificate_path="$RUNNER_TEMP/developer-id.p12"
+          keychain_path="$RUNNER_TEMP/pulsebar-signing.keychain-db"
+
+          printf '%s' "$MACOS_CERTIFICATE" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$certificate_path" \
+            -P "$MACOS_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$keychain_path"
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+
+      - name: Build universal release
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild build \
+            -project PulseBar.xcodeproj \
+            -scheme PulseBar \
+            -configuration Release \
+            -derivedDataPath .build-release \
+            ARCHS='arm64 x86_64' \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+          app_path="$GITHUB_WORKSPACE/.build-release/Build/Products/Release/PulseBar.app"
+          codesign --force \
+            --deep \
+            --options runtime \
+            --timestamp \
+            --sign "$DEVELOPER_ID_APPLICATION" \
+            "$app_path"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          lipo -info "$app_path/Contents/MacOS/PulseBar"
+
+      - name: Notarize and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$GITHUB_WORKSPACE/.build-release/Build/Products/Release/PulseBar.app"
+          release_directory="$GITHUB_WORKSPACE/.build-release/release"
+          notarization_archive="$RUNNER_TEMP/PulseBar-notarization.zip"
+
+          mkdir -p "$release_directory"
+          ditto -c -k --sequesterRsrc --keepParent "$app_path" "$notarization_archive"
+          xcrun notarytool submit "$notarization_archive" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$app_path"
+          xcrun stapler validate "$app_path"
+          spctl --assess --type execute --verbose=2 "$app_path"
+
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$app_path" "$release_directory/PulseBar.zip"
+          (
+            cd "$release_directory"
+            shasum -a 256 PulseBar.zip > PulseBar.zip.sha256
+          )
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_directory="$GITHUB_WORKSPACE/.build-release/release"
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" \
+              "$release_directory/PulseBar.zip" \
+              "$release_directory/PulseBar.zip.sha256" \
+              --clobber
+            gh release edit "$RELEASE_TAG" --latest
+          else
+            gh release create "$RELEASE_TAG" \
+              "$release_directory/PulseBar.zip" \
+              "$release_directory/PulseBar.zip.sha256" \
+              --target "$GITHUB_SHA" \
+              --title "PulseBar ${RELEASE_TAG#v}" \
+              --generate-notes \
+              --latest
+          fi
+
+      - name: Remove temporary signing keychain
+        if: always()
+        shell: bash
+        run: |
+          keychain_path="$RUNNER_TEMP/pulsebar-signing.keychain-db"
+          if [[ -f "$keychain_path" ]]; then
+            security delete-keychain "$keychain_path"
+          fi

@@ -5,7 +5,42 @@ The curl installer downloads two assets from the latest published GitHub release
 - `PulseBar.zip`
 - `PulseBar.zip.sha256`
 
-## Prepare the release
+The `Publish Release` GitHub Actions workflow builds a universal app, signs it with Developer ID, notarizes it with Apple, and publishes both files.
+
+## One-time GitHub setup
+
+Add these encrypted values under **Repository Settings → Secrets and variables → Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `MACOS_CERTIFICATE` | Developer ID Application `.p12` file encoded with `base64 -i certificate.p12` |
+| `MACOS_CERTIFICATE_PASSWORD` | Password used when exporting the `.p12` file |
+| `KEYCHAIN_PASSWORD` | A strong temporary password used only by the Actions keychain |
+| `DEVELOPER_ID_APPLICATION` | Full signing identity, such as `Developer ID Application: Your Name (TEAMID)` |
+| `APPLE_ID` | Apple ID used for notarization |
+| `APPLE_TEAM_ID` | Apple Developer Team ID |
+| `APPLE_APP_PASSWORD` | App-specific password created for the Apple ID |
+
+Never commit these values to the repository.
+
+## Publish a release
+
+After the release changes are merged into `master`, create and push a semantic version tag:
+
+```sh
+git switch master
+git pull --ff-only
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow runs the tests and publishes the release automatically. You can also open **Actions → Publish Release → Run workflow** and enter a tag such as `v1.0.0`.
+
+When the workflow finishes, confirm that both assets appear on the repository's Releases page. The installer URL will then work without another code change.
+
+## Manual fallback
+
+If GitHub Actions is unavailable:
 
 1. Archive PulseBar in Xcode with the **Release** configuration.
 2. Sign the app with a Developer ID certificate and notarize it with Apple.

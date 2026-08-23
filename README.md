@@ -54,7 +54,7 @@ The default shortcut is <kbd>⌥</kbd> <kbd>⌘</kbd> <kbd>P</kbd>. Press it onc
 Install the latest release with one command:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/master/install.sh | bash
 ```
 
 The installer verifies the release checksum and code signature, copies PulseBar to `/Applications`, and opens it. macOS may ask for your administrator password when installing into `/Applications`.
@@ -64,7 +64,7 @@ See the [installation guide](docs/INSTALLATION.md) for updates, custom install l
 ### Uninstall
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/master/uninstall.sh | bash
 ```
 
 The uninstaller disables Launch at Login and moves PulseBar to the Trash. Your preferences are kept if you decide to reinstall later.

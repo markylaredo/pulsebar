@@ -7,7 +7,7 @@ PulseBar supports macOS 14 and later.
 Open Terminal and run:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/master/install.sh | bash
 ```
 
 The installer will:
@@ -26,7 +26,7 @@ macOS may request your administrator password when the installer writes to `/App
 If you prefer to inspect scripts before running them, download the installer separately:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/main/install.sh \
+curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/master/install.sh \
   -o /tmp/pulsebar-install.sh
 less /tmp/pulsebar-install.sh
 sh /tmp/pulsebar-install.sh
@@ -37,7 +37,7 @@ sh /tmp/pulsebar-install.sh
 Set `PULSEBAR_INSTALL_DIR` to use another applications directory:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/main/install.sh \
+curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/master/install.sh \
   | PULSEBAR_INSTALL_DIR="$HOME/Applications" bash
 ```
 
@@ -54,7 +54,7 @@ Quit and reopen PulseBar after updating if it was already running.
 Run:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/master/uninstall.sh | bash
 ```
 
 The uninstaller quits PulseBar, disables Launch at Login, and moves the application to the Trash. macOS may request your administrator password when removing it from `/Applications`.

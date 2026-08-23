@@ -8,6 +8,7 @@ enum SettingsKey {
     static let dashboardBackgroundTint = "dashboardBackgroundTint"
     static let dashboardOpacity = "dashboardOpacity"
     static let dashboardPinned = "dashboardPinned"
+    static let dashboardShortcut = "dashboardShortcut"
     static let compactMenuBar = "compactMenuBar"
     static let menuBarWidthBehavior = "menuBarWidthBehavior"
     static let showCPU = "showCPU"
@@ -25,6 +26,70 @@ enum SettingsKey {
     static let monitorThermal = "monitorThermal"
     static let networkDisplayMode = "networkDisplayMode"
     static let menuBarMetricOrder = "menuBarMetricOrder"
+}
+
+struct DashboardShortcutModifiers: OptionSet, Equatable, Sendable {
+    let rawValue: UInt32
+
+    static let command = Self(rawValue: 1 << 0)
+    static let option = Self(rawValue: 1 << 1)
+    static let control = Self(rawValue: 1 << 2)
+    static let shift = Self(rawValue: 1 << 3)
+
+    var symbols: String {
+        var result = ""
+        if contains(.control) { result += "⌃" }
+        if contains(.option) { result += "⌥" }
+        if contains(.shift) { result += "⇧" }
+        if contains(.command) { result += "⌘" }
+        return result
+    }
+
+    var hasPrimaryModifier: Bool {
+        !intersection([.command, .option, .control]).isEmpty
+    }
+}
+
+struct DashboardShortcut: Equatable, Sendable {
+    static let defaultValue = Self(
+        keyCode: 35,
+        modifiers: [.command, .option],
+        keyName: "P"
+    )
+
+    let keyCode: UInt32
+    let modifiers: DashboardShortcutModifiers
+    let keyName: String
+
+    var displayName: String { modifiers.symbols + keyName }
+
+    var storageValue: String {
+        let encodedKey = Data(keyName.utf8).base64EncodedString()
+        return "v1:\(keyCode):\(modifiers.rawValue):\(encodedKey)"
+    }
+
+    init(keyCode: UInt32, modifiers: DashboardShortcutModifiers, keyName: String) {
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+        self.keyName = keyName
+    }
+
+    init?(storageValue: String) {
+        let components = storageValue.split(separator: ":", omittingEmptySubsequences: false)
+        guard components.count == 4,
+              components[0] == "v1",
+              let keyCode = UInt32(components[1]),
+              let modifierValue = UInt32(components[2]),
+              let keyData = Data(base64Encoded: String(components[3])),
+              let keyName = String(data: keyData, encoding: .utf8),
+              !keyName.isEmpty else { return nil }
+
+        self.init(
+            keyCode: keyCode,
+            modifiers: DashboardShortcutModifiers(rawValue: modifierValue),
+            keyName: keyName
+        )
+    }
 }
 
 enum DashboardBackgroundTint: String, CaseIterable, Identifiable {

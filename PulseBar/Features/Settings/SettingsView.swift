@@ -10,6 +10,7 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.dashboardLiquidGlass) private var dashboardLiquidGlass = true
     @AppStorage(SettingsKey.dashboardBackgroundTint) private var dashboardBackgroundTint = DashboardBackgroundTint.black.rawValue
     @AppStorage(SettingsKey.dashboardOpacity) private var dashboardOpacity = DashboardAppearance.defaultOpacityLevel
+    @AppStorage(SettingsKey.dashboardShortcut) private var dashboardShortcut = DashboardShortcut.defaultValue.storageValue
     @AppStorage(SettingsKey.compactMenuBar) private var compactMenuBar = false
     @AppStorage(SettingsKey.menuBarWidthBehavior) private var menuBarWidthBehavior = MenuBarWidthBehavior.fixed.rawValue
     @AppStorage(SettingsKey.menuBarMetricOrder) private var storedMenuBarOrder = MenuBarMetric.defaultOrderValue
@@ -26,6 +27,16 @@ struct SettingsView: View {
                 if let error = launchAtLogin.errorMessage { Text(error).font(.caption).foregroundStyle(.red) }
                 Picker("Refresh Speed", selection: $refreshPreset) {
                     ForEach(RefreshPreset.allCases) { preset in Text("\(preset.title) — \(preset.detail)").tag(preset.rawValue) }
+                }
+                Section("Keyboard Shortcut") {
+                    HStack {
+                        Text("Toggle Dashboard")
+                        Spacer()
+                        ShortcutRecorder(shortcut: dashboardShortcutBinding)
+                    }
+                    Text("Works from any application. Select the shortcut field, then press a combination containing ⌘, ⌥, or ⌃. Press Delete to clear it.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 Section("Appearance") {
                     Picker("App theme", selection: $appearance) {
@@ -168,6 +179,13 @@ struct SettingsView: View {
         storedMenuBarOrder = MenuBarMetric.encode(metrics)
     }
 
+    private var dashboardShortcutBinding: Binding<DashboardShortcut?> {
+        Binding(
+            get: { DashboardShortcut(storageValue: dashboardShortcut) },
+            set: { dashboardShortcut = $0?.storageValue ?? "" }
+        )
+    }
+
     private func moveMenuBarMetric(_ metric: MenuBarMetric, by offset: Int) {
         guard let sourceIndex = menuBarOrder.firstIndex(of: metric) else { return }
         let destinationIndex = sourceIndex + offset
@@ -176,6 +194,141 @@ struct SettingsView: View {
             menuBarOrder.swapAt(sourceIndex, destinationIndex)
         }
         saveMenuBarOrder(menuBarOrder)
+    }
+}
+
+private struct ShortcutRecorder: View {
+    @Binding var shortcut: DashboardShortcut?
+    @State private var isRecording = false
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Button {
+                isRecording.toggle()
+            } label: {
+                Text(isRecording ? "Press shortcut…" : shortcut?.displayName ?? "Not Set")
+                    .font(.system(.body, design: .monospaced))
+                    .frame(minWidth: 112)
+            }
+            .buttonStyle(.bordered)
+            .help(isRecording ? "Press a keyboard shortcut" : "Change keyboard shortcut")
+            .accessibilityLabel("Dashboard keyboard shortcut")
+            .accessibilityValue(shortcut?.displayName ?? "Not set")
+
+            if shortcut != nil {
+                Button {
+                    shortcut = nil
+                    isRecording = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear keyboard shortcut")
+                .accessibilityLabel("Clear dashboard keyboard shortcut")
+            }
+        }
+        .background {
+            ShortcutCaptureView(
+                isRecording: isRecording,
+                onShortcut: { capturedShortcut in
+                    shortcut = capturedShortcut
+                    isRecording = false
+                },
+                onCancel: { isRecording = false }
+            )
+            .frame(width: 0, height: 0)
+        }
+    }
+}
+
+private struct ShortcutCaptureView: NSViewRepresentable {
+    let isRecording: Bool
+    let onShortcut: (DashboardShortcut?) -> Void
+    let onCancel: () -> Void
+
+    func makeNSView(context: Context) -> ShortcutCaptureNSView {
+        ShortcutCaptureNSView()
+    }
+
+    func updateNSView(_ nsView: ShortcutCaptureNSView, context: Context) {
+        nsView.onShortcut = onShortcut
+        nsView.onCancel = onCancel
+        nsView.isRecording = isRecording
+
+        DispatchQueue.main.async {
+            if isRecording {
+                nsView.window?.makeFirstResponder(nsView)
+            } else if nsView.window?.firstResponder === nsView {
+                nsView.window?.makeFirstResponder(nil)
+            }
+        }
+    }
+}
+
+private final class ShortcutCaptureNSView: NSView {
+    var isRecording = false
+    var onShortcut: ((DashboardShortcut?) -> Void)?
+    var onCancel: (() -> Void)?
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        guard isRecording else {
+            super.keyDown(with: event)
+            return
+        }
+
+        switch event.keyCode {
+        case 53:
+            onCancel?()
+        case 51, 117:
+            onShortcut?(nil)
+        default:
+            guard let shortcut = DashboardShortcut(event: event) else {
+                NSSound.beep()
+                return
+            }
+            onShortcut?(shortcut)
+        }
+    }
+}
+
+private extension DashboardShortcut {
+    init?(event: NSEvent) {
+        let eventModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        var modifiers = DashboardShortcutModifiers()
+        if eventModifiers.contains(.command) { modifiers.insert(.command) }
+        if eventModifiers.contains(.option) { modifiers.insert(.option) }
+        if eventModifiers.contains(.control) { modifiers.insert(.control) }
+        if eventModifiers.contains(.shift) { modifiers.insert(.shift) }
+        guard modifiers.hasPrimaryModifier,
+              let keyName = Self.keyName(for: event) else { return nil }
+
+        self.init(
+            keyCode: UInt32(event.keyCode),
+            modifiers: modifiers,
+            keyName: keyName
+        )
+    }
+
+    static func keyName(for event: NSEvent) -> String? {
+        let namedKeys: [UInt16: String] = [
+            36: "Return", 48: "Tab", 49: "Space",
+            115: "Home", 116: "Page Up", 119: "End", 121: "Page Down",
+            123: "←", 124: "→", 125: "↓", 126: "↑",
+            122: "F1", 120: "F2", 99: "F3", 118: "F4",
+            96: "F5", 97: "F6", 98: "F7", 100: "F8",
+            101: "F9", 109: "F10", 103: "F11", 111: "F12"
+        ]
+        if let namedKey = namedKeys[event.keyCode] { return namedKey }
+
+        guard let characters = event.charactersIgnoringModifiers?.uppercased(),
+              characters.count == 1,
+              !characters.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return characters
     }
 }
 

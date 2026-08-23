@@ -119,6 +119,7 @@ final class SystemMonitor {
             SettingsKey.dashboardBackgroundTint: DashboardBackgroundTint.black.rawValue,
             SettingsKey.dashboardOpacity: DashboardAppearance.defaultOpacityLevel,
             SettingsKey.dashboardPinned: true,
+            SettingsKey.dashboardShortcut: DashboardShortcut.defaultValue.storageValue,
             SettingsKey.compactMenuBar: false,
             SettingsKey.menuBarWidthBehavior: MenuBarWidthBehavior.fixed.rawValue,
             SettingsKey.showCPU: true,

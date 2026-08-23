@@ -12,14 +12,21 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     private var labelHostingView: NSHostingView<StatusItemLabel>?
     private var statusItemLengthTask: Task<Void, Never>?
     private var defaultsObserver: NSObjectProtocol?
+    private var globalShortcutController: GlobalShortcutController?
 
     init(monitor: SystemMonitor, openSettings: @escaping () -> Void) {
         self.monitor = monitor
         self.openSettings = openSettings
         labelModel = StatusItemLabelModel(presentation: .make(metrics: monitor.metrics))
         super.init()
+        globalShortcutController = GlobalShortcutController { [weak self] in
+            Task { @MainActor in
+                self?.togglePopover(nil)
+            }
+        }
         configureStatusItem()
         configurePopover()
+        updateGlobalShortcut()
         observeMetrics()
         observeSettings()
         updateStatusItem(animated: false)
@@ -82,6 +89,11 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
 
     private func updatePopoverBehavior(isPinned: Bool) {
         popover.behavior = isPinned ? .applicationDefined : .transient
+    }
+
+    private func updateGlobalShortcut() {
+        let storedValue = UserDefaults.standard.string(forKey: SettingsKey.dashboardShortcut) ?? ""
+        globalShortcutController?.register(DashboardShortcut(storageValue: storedValue))
     }
 
     private func updateStatusItem(animated: Bool) {
@@ -148,6 +160,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.updatePopoverBehavior()
+                self?.updateGlobalShortcut()
                 self?.updateStatusItem(animated: false)
             }
         }

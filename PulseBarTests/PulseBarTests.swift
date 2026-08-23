@@ -29,6 +29,19 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(DashboardAppearance.glassTintOpacity(for: 10), 0.2, accuracy: 0.0001)
     }
 
+    func testDashboardShortcutStorageRoundTrips() {
+        let shortcut = DashboardShortcut(
+            keyCode: 35,
+            modifiers: [.control, .option, .shift],
+            keyName: "P"
+        )
+
+        XCTAssertEqual(DashboardShortcut(storageValue: shortcut.storageValue), shortcut)
+        XCTAssertEqual(shortcut.displayName, "⌃⌥⇧P")
+        XCTAssertNil(DashboardShortcut(storageValue: ""))
+        XCTAssertNil(DashboardShortcut(storageValue: "invalid"))
+    }
+
     func testFormatting() {
         XCTAssertEqual(MetricFormatter.percentage(0.414), "41%")
         XCTAssertEqual(MetricFormatter.bytes(1_000_000), "1 MB")

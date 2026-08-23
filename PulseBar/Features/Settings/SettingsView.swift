@@ -7,6 +7,9 @@ struct SettingsView: View {
     @State private var launchAtLogin = LaunchAtLoginController()
     @AppStorage(SettingsKey.refreshPreset) private var refreshPreset = RefreshPreset.normal.rawValue
     @AppStorage(SettingsKey.appearance) private var appearance = AppAppearance.system.rawValue
+    @AppStorage(SettingsKey.dashboardLiquidGlass) private var dashboardLiquidGlass = true
+    @AppStorage(SettingsKey.dashboardBackgroundTint) private var dashboardBackgroundTint = DashboardBackgroundTint.black.rawValue
+    @AppStorage(SettingsKey.dashboardOpacity) private var dashboardOpacity = DashboardAppearance.defaultOpacityLevel
     @AppStorage(SettingsKey.compactMenuBar) private var compactMenuBar = false
     @AppStorage(SettingsKey.menuBarWidthBehavior) private var menuBarWidthBehavior = MenuBarWidthBehavior.fixed.rawValue
     @AppStorage(SettingsKey.menuBarMetricOrder) private var storedMenuBarOrder = MenuBarMetric.defaultOrderValue
@@ -24,8 +27,54 @@ struct SettingsView: View {
                 Picker("Refresh Speed", selection: $refreshPreset) {
                     ForEach(RefreshPreset.allCases) { preset in Text("\(preset.title) — \(preset.detail)").tag(preset.rawValue) }
                 }
-                Picker("Appearance", selection: $appearance) {
-                    ForEach(AppAppearance.allCases) { option in Text(option.title).tag(option.rawValue) }
+                Section("Appearance") {
+                    Picker("App theme", selection: $appearance) {
+                        ForEach(AppAppearance.allCases) { option in Text(option.title).tag(option.rawValue) }
+                    }
+                    Toggle("Enable Liquid Glass effect", isOn: $dashboardLiquidGlass)
+                    Picker("Background Tint", selection: $dashboardBackgroundTint) {
+                        ForEach(DashboardBackgroundTint.allCases) { tint in
+                            Text(tint.title).tag(tint.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(!dashboardLiquidGlass)
+                    HStack {
+                        Text("Opacity")
+                        Slider(value: $dashboardOpacity, in: 1...10, step: 1)
+                            .accessibilityLabel("Dashboard opacity")
+                        Text(dashboardOpacity.formatted(.number.precision(.fractionLength(0))))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .frame(width: 18, alignment: .trailing)
+                    }
+                    .disabled(!dashboardLiquidGlass)
+                    Label("For Dark appearance, Black tint and opacity 7 are recommended.", systemImage: "info.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("For visible transparency, set System Settings → Appearance → Liquid Glass to Clear. The macOS Tinted setting makes popovers opaque on dark backgrounds.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text("Liquid Glass creates a dynamic, translucent dashboard that adapts to your desktop. Turn it off for a solid black background.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Section("Application") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Quit PulseBar")
+                            Text("Stop monitoring and close the application.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button(role: .destructive) {
+                            NSApplication.shared.terminate(nil)
+                        } label: {
+                            Label("Quit", systemImage: "power")
+                        }
+                        .accessibilityLabel("Quit PulseBar")
+                    }
                 }
             }
             .formStyle(.grouped)

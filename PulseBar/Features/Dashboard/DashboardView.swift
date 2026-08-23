@@ -6,11 +6,20 @@ struct DashboardView: View {
     @Environment(\.openSettings) private var openSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(SettingsKey.networkDisplayMode) private var networkDisplayModeRaw = NetworkDisplayMode.data.rawValue
+    @AppStorage(SettingsKey.dashboardLiquidGlass) private var dashboardLiquidGlass = true
+    @AppStorage(SettingsKey.dashboardBackgroundTint) private var dashboardBackgroundTintRaw = DashboardBackgroundTint.black.rawValue
+    @AppStorage(SettingsKey.dashboardOpacity) private var dashboardOpacity = DashboardAppearance.defaultOpacityLevel
+    @AppStorage(SettingsKey.dashboardPinned) private var dashboardPinned = true
     @State private var isPerCoreExpanded = false
     let openSettingsAction: (() -> Void)?
+    let dashboardPinAction: ((Bool) -> Void)?
 
-    init(openSettingsAction: (() -> Void)? = nil) {
+    init(
+        openSettingsAction: (() -> Void)? = nil,
+        dashboardPinAction: ((Bool) -> Void)? = nil
+    ) {
         self.openSettingsAction = openSettingsAction
+        self.dashboardPinAction = dashboardPinAction
     }
 
     var body: some View {
@@ -39,7 +48,26 @@ struct DashboardView: View {
             }
         }
         .frame(width: 360, height: 570)
-        .background(.regularMaterial)
+        .background { dashboardSurface }
+    }
+
+    @ViewBuilder
+    private var dashboardSurface: some View {
+        if dashboardLiquidGlass {
+            // NSPopover supplies the system Liquid Glass surface on macOS 26.
+            // Keep this layer transparent so it does not cover that material.
+            dashboardTint.opacity(dashboardTintOpacity)
+        } else {
+            Color.black
+        }
+    }
+
+    private var dashboardTint: Color {
+        (DashboardBackgroundTint(rawValue: dashboardBackgroundTintRaw) ?? .black).color
+    }
+
+    private var dashboardTintOpacity: Double {
+        DashboardAppearance.glassTintOpacity(for: dashboardOpacity)
     }
 
     private var header: some View {
@@ -49,11 +77,34 @@ struct DashboardView: View {
                 Text(machineDescription).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Button { showSettings() } label: { Image(systemName: "gearshape") }
-                .buttonStyle(.plain).help("Settings…").accessibilityLabel("Open Settings")
-                .keyboardShortcut(",", modifiers: .command)
-            Button { NSApplication.shared.terminate(nil) } label: { Image(systemName: "power") }
-                .buttonStyle(.plain).help("Quit PulseBar").accessibilityLabel("Quit PulseBar")
+            Toggle(isOn: Binding(
+                get: { dashboardPinned },
+                set: { isPinned in
+                    dashboardPinned = isPinned
+                    dashboardPinAction?(isPinned)
+                }
+            )) {
+                Image(systemName: dashboardPinned ? "pin.fill" : "pin")
+                    .foregroundStyle(dashboardPinned ? Color.accentColor : .primary)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .toggleStyle(.button)
+            .buttonStyle(.plain)
+            .help(dashboardPinned
+                  ? "Unpin Dashboard — close when clicking elsewhere"
+                  : "Pin Dashboard — keep open when clicking elsewhere")
+            .accessibilityLabel(dashboardPinned ? "Unpin Dashboard" : "Pin Dashboard")
+            .accessibilityValue(dashboardPinned ? "Pinned" : "Unpinned")
+            Button { showSettings() } label: {
+                Image(systemName: "gearshape")
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Open PulseBar Settings")
+            .accessibilityLabel("Open Settings")
+            .keyboardShortcut(",", modifiers: .command)
         }
         .padding(14)
     }

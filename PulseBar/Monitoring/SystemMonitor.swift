@@ -115,6 +115,10 @@ final class SystemMonitor {
         UserDefaults.standard.register(defaults: [
             SettingsKey.refreshPreset: RefreshPreset.normal.rawValue,
             SettingsKey.appearance: AppAppearance.system.rawValue,
+            SettingsKey.dashboardLiquidGlass: true,
+            SettingsKey.dashboardBackgroundTint: DashboardBackgroundTint.black.rawValue,
+            SettingsKey.dashboardOpacity: DashboardAppearance.defaultOpacityLevel,
+            SettingsKey.dashboardPinned: true,
             SettingsKey.compactMenuBar: false,
             SettingsKey.menuBarWidthBehavior: MenuBarWidthBehavior.fixed.rawValue,
             SettingsKey.showCPU: true,

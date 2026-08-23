@@ -4,6 +4,10 @@ import SwiftUI
 enum SettingsKey {
     static let refreshPreset = "refreshPreset"
     static let appearance = "appearance"
+    static let dashboardLiquidGlass = "dashboardLiquidGlass"
+    static let dashboardBackgroundTint = "dashboardBackgroundTint"
+    static let dashboardOpacity = "dashboardOpacity"
+    static let dashboardPinned = "dashboardPinned"
     static let compactMenuBar = "compactMenuBar"
     static let menuBarWidthBehavior = "menuBarWidthBehavior"
     static let showCPU = "showCPU"
@@ -21,6 +25,34 @@ enum SettingsKey {
     static let monitorThermal = "monitorThermal"
     static let networkDisplayMode = "networkDisplayMode"
     static let menuBarMetricOrder = "menuBarMetricOrder"
+}
+
+enum DashboardBackgroundTint: String, CaseIterable, Identifiable {
+    case black
+    case white
+
+    var id: Self { self }
+    var title: String { rawValue.capitalized }
+
+    var color: Color {
+        switch self {
+        case .black: .black
+        case .white: .white
+        }
+    }
+}
+
+enum DashboardAppearance {
+    static let defaultOpacityLevel = 8.0
+
+    static func opacity(for level: Double) -> Double {
+        min(max(level, 1), 10) / 10
+    }
+
+    static func glassTintOpacity(for level: Double) -> Double {
+        let clampedLevel = min(max(level, 1), 10)
+        return ((clampedLevel - 1) / 9) * 0.2
+    }
 }
 
 enum MenuBarWidthBehavior: String, CaseIterable, Identifiable {

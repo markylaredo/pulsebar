@@ -20,6 +20,15 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(history.samples, [2, 3, 4])
     }
 
+    func testDashboardOpacityLevelIsNormalizedAndClamped() {
+        XCTAssertEqual(DashboardAppearance.opacity(for: 8), 0.8, accuracy: 0.0001)
+        XCTAssertEqual(DashboardAppearance.opacity(for: -1), 0.1, accuracy: 0.0001)
+        XCTAssertEqual(DashboardAppearance.opacity(for: 12), 1, accuracy: 0.0001)
+        XCTAssertEqual(DashboardAppearance.glassTintOpacity(for: 1), 0, accuracy: 0.0001)
+        XCTAssertEqual(DashboardAppearance.glassTintOpacity(for: 7), 0.1333, accuracy: 0.0001)
+        XCTAssertEqual(DashboardAppearance.glassTintOpacity(for: 10), 0.2, accuracy: 0.0001)
+    }
+
     func testFormatting() {
         XCTAssertEqual(MetricFormatter.percentage(0.414), "41%")
         XCTAssertEqual(MetricFormatter.bytes(1_000_000), "1 MB")

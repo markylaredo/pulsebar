@@ -41,7 +41,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     }
 
     private func configurePopover() {
-        popover.behavior = .transient
+        updatePopoverBehavior()
         popover.animates = true
         popover.contentSize = NSSize(width: 360, height: 570)
         popover.delegate = self
@@ -49,8 +49,10 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
             rootView: DashboardRootView(
                 monitor: monitor,
                 openSettings: { [weak self] in
-                    self?.popover.performClose(nil)
                     self?.openSettings()
+                },
+                dashboardPinChanged: { [weak self] isPinned in
+                    self?.updatePopoverBehavior(isPinned: isPinned)
                 }
             )
         )
@@ -70,6 +72,16 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
 
     func popoverDidClose(_ notification: Notification) {
         statusItem.button?.state = .off
+    }
+
+    private func updatePopoverBehavior() {
+        let defaults = UserDefaults.standard
+        let isPinned = defaults.object(forKey: SettingsKey.dashboardPinned) as? Bool ?? true
+        updatePopoverBehavior(isPinned: isPinned)
+    }
+
+    private func updatePopoverBehavior(isPinned: Bool) {
+        popover.behavior = isPinned ? .applicationDefined : .transient
     }
 
     private func updateStatusItem(animated: Bool) {
@@ -135,6 +147,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
+                self?.updatePopoverBehavior()
                 self?.updateStatusItem(animated: false)
             }
         }
@@ -200,10 +213,14 @@ private final class PassthroughHostingView<Content: View>: NSHostingView<Content
 private struct DashboardRootView: View {
     let monitor: SystemMonitor
     let openSettings: () -> Void
+    let dashboardPinChanged: (Bool) -> Void
     @AppStorage(SettingsKey.appearance) private var appearance = AppAppearance.system.rawValue
 
     var body: some View {
-        DashboardView(openSettingsAction: openSettings)
+        DashboardView(
+            openSettingsAction: openSettings,
+            dashboardPinAction: dashboardPinChanged
+        )
             .environment(monitor)
             .preferredColorScheme(AppAppearance(rawValue: appearance)?.colorScheme)
     }

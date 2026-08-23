@@ -5,11 +5,11 @@ The curl installer downloads two assets from the latest published GitHub release
 - `PulseBar.zip`
 - `PulseBar.zip.sha256`
 
-The `Publish Release` GitHub Actions workflow builds a universal app, signs it with Developer ID, notarizes it with Apple, and publishes both files.
+The `Publish Release` GitHub Actions workflow builds a universal app and publishes both files. Without Apple credentials it creates an ad-hoc signed release. With the complete secret set below it creates a Developer ID signed and notarized release.
 
-## One-time GitHub setup
+## Apple signing setup (recommended)
 
-Add these encrypted values under **Repository Settings → Secrets and variables → Actions**:
+For a public release that passes normal Gatekeeper checks, add these encrypted values under **Repository Settings → Secrets and variables → Actions**:
 
 | Secret | Value |
 | --- | --- |
@@ -21,7 +21,9 @@ Add these encrypted values under **Repository Settings → Secrets and variables
 | `APPLE_TEAM_ID` | Apple Developer Team ID |
 | `APPLE_APP_PASSWORD` | App-specific password created for the Apple ID |
 
-Never commit these values to the repository.
+Never commit these values to the repository. Configure either all seven secrets or none of them; the workflow rejects partial signing configuration.
+
+If none are configured, the workflow still publishes an ad-hoc signed, non-notarized build. This is useful for early testing, but Developer ID signing and notarization are strongly recommended before promoting PulseBar to general users.
 
 ## Publish a release
 

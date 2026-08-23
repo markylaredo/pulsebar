@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   release:
-    name: Build, notarize, and publish
+    name: Build and publish
     runs-on: macos-15-intel
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -34,9 +34,10 @@ jobs:
 
     steps:
       - name: Check out the release source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Validate release configuration
+        id: release_configuration
         shell: bash
         run: |
           set -euo pipefail
@@ -56,12 +57,27 @@ jobs:
             APPLE_APP_PASSWORD
           )
 
+          configured_count=0
+          missing_secrets=()
           for secret_name in "${required_secrets[@]}"; do
-            if [[ -z "${!secret_name:-}" ]]; then
-              echo "Missing GitHub Actions secret: $secret_name" >&2
-              exit 1
+            if [[ -n "${!secret_name:-}" ]]; then
+              configured_count=$((configured_count + 1))
+            else
+              missing_secrets+=("$secret_name")
             fi
           done
+
+          if [[ "$configured_count" -eq 0 ]]; then
+            echo "signing_mode=ad-hoc" >> "$GITHUB_OUTPUT"
+            echo "::warning::Apple signing secrets are not configured. Publishing an ad-hoc signed, non-notarized release."
+          elif [[ "${#missing_secrets[@]}" -gt 0 ]]; then
+            printf 'Apple signing is only partially configured. Missing:' >&2
+            printf ' %s' "${missing_secrets[@]}" >&2
+            printf '\n' >&2
+            exit 1
+          else
+            echo "signing_mode=developer-id" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Run tests
         run: |
@@ -73,6 +89,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
       - name: Import Developer ID certificate
+        if: steps.release_configuration.outputs.signing_mode == 'developer-id'
         shell: bash
         run: |
           set -euo pipefail
@@ -109,25 +126,36 @@ jobs:
             ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO
 
+      - name: Sign release
+        shell: bash
+        env:
+          SIGNING_MODE: ${{ steps.release_configuration.outputs.signing_mode }}
+        run: |
+          set -euo pipefail
           app_path="$GITHUB_WORKSPACE/.build-release/Build/Products/Release/PulseBar.app"
-          codesign --force \
-            --deep \
-            --options runtime \
-            --timestamp \
-            --sign "$DEVELOPER_ID_APPLICATION" \
-            "$app_path"
+
+          if [[ "$SIGNING_MODE" == "developer-id" ]]; then
+            codesign --force \
+              --deep \
+              --options runtime \
+              --timestamp \
+              --sign "$DEVELOPER_ID_APPLICATION" \
+              "$app_path"
+          else
+            codesign --force --deep --sign - "$app_path"
+          fi
+
           codesign --verify --deep --strict --verbose=2 "$app_path"
           lipo -info "$app_path/Contents/MacOS/PulseBar"
 
-      - name: Notarize and package
+      - name: Notarize release
+        if: steps.release_configuration.outputs.signing_mode == 'developer-id'
         shell: bash
         run: |
           set -euo pipefail
           app_path="$GITHUB_WORKSPACE/.build-release/Build/Products/Release/PulseBar.app"
-          release_directory="$GITHUB_WORKSPACE/.build-release/release"
           notarization_archive="$RUNNER_TEMP/PulseBar-notarization.zip"
 
-          mkdir -p "$release_directory"
           ditto -c -k --sequesterRsrc --keepParent "$app_path" "$notarization_archive"
           xcrun notarytool submit "$notarization_archive" \
             --apple-id "$APPLE_ID" \
@@ -138,6 +166,15 @@ jobs:
           xcrun stapler validate "$app_path"
           spctl --assess --type execute --verbose=2 "$app_path"
 
+      - name: Package release
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$GITHUB_WORKSPACE/.build-release/Build/Products/Release/PulseBar.app"
+          release_directory="$GITHUB_WORKSPACE/.build-release/release"
+
+          mkdir -p "$release_directory"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
           ditto -c -k --sequesterRsrc --keepParent \
             "$app_path" "$release_directory/PulseBar.zip"
           (
@@ -149,6 +186,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          SIGNING_MODE: ${{ steps.release_configuration.outputs.signing_mode }}
         run: |
           set -euo pipefail
           release_directory="$GITHUB_WORKSPACE/.build-release/release"
@@ -160,13 +198,23 @@ jobs:
               --clobber
             gh release edit "$RELEASE_TAG" --latest
           else
-            gh release create "$RELEASE_TAG" \
-              "$release_directory/PulseBar.zip" \
-              "$release_directory/PulseBar.zip.sha256" \
-              --target "$GITHUB_SHA" \
-              --title "PulseBar ${RELEASE_TAG#v}" \
-              --generate-notes \
-              --latest
+            if [[ "$SIGNING_MODE" == "developer-id" ]]; then
+              gh release create "$RELEASE_TAG" \
+                "$release_directory/PulseBar.zip" \
+                "$release_directory/PulseBar.zip.sha256" \
+                --target "$GITHUB_SHA" \
+                --title "PulseBar ${RELEASE_TAG#v}" \
+                --generate-notes \
+                --latest
+            else
+              gh release create "$RELEASE_TAG" \
+                "$release_directory/PulseBar.zip" \
+                "$release_directory/PulseBar.zip.sha256" \
+                --target "$GITHUB_SHA" \
+                --title "PulseBar ${RELEASE_TAG#v}" \
+                --notes "This release is ad-hoc signed and not notarized because Apple Developer credentials were not configured. The curl installer verifies its checksum and code signature before installation." \
+                --latest
+            fi
           fi
 
       - name: Remove temporary signing keychain

@@ -10,6 +10,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     private let popover = NSPopover()
     private let labelModel: StatusItemLabelModel
     private var labelHostingView: NSHostingView<StatusItemLabel>?
+    private var statusItemUpdateTask: Task<Void, Never>?
     private var statusItemLengthTask: Task<Void, Never>?
     private var defaultsObserver: NSObjectProtocol?
     private var globalShortcutController: GlobalShortcutController?
@@ -102,7 +103,12 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         button.toolTip = presentation.accessibilityLabel
         button.setAccessibilityLabel(presentation.accessibilityLabel)
 
-        if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+        // AppKit redirects custom status-item drawing into every display's menu bar.
+        // Avoid multiplying SwiftUI's numeric transition work across those clones.
+        let shouldAnimate = animated
+            && NSScreen.screens.count == 1
+            && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if shouldAnimate {
             withAnimation(.easeInOut(duration: 0.24)) {
                 labelModel.presentation = presentation
             }
@@ -146,9 +152,20 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
-                self.updateStatusItem(animated: true)
                 self.observeMetrics()
+                self.scheduleStatusItemUpdate()
             }
+        }
+    }
+
+    private func scheduleStatusItemUpdate() {
+        statusItemUpdateTask?.cancel()
+        statusItemUpdateTask = Task { @MainActor [weak self] in
+            // Independent readers can finish a few milliseconds apart. Coalesce
+            // those publications so AppKit redraws every display's clone once.
+            do { try await Task.sleep(for: .milliseconds(75)) } catch { return }
+            guard !Task.isCancelled, let self else { return }
+            self.updateStatusItem(animated: true)
         }
     }
 
@@ -159,6 +176,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
+                self?.statusItemUpdateTask?.cancel()
                 self?.updatePopoverBehavior()
                 self?.updateGlobalShortcut()
                 self?.updateStatusItem(animated: false)

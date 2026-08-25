@@ -104,6 +104,23 @@ struct SettingsView: View {
                      : "PulseBar expands and contracts to fit live values.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Section("Displays") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Show on all displays")
+                            Text("PulseBar follows the macOS menu bar setting for connected displays.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Open System Settings") {
+                            openDesktopAndDockSettings()
+                        }
+                    }
+                    Text("In Desktop & Dock, enable “Displays have separate Spaces” to show PulseBar in every display's menu bar. macOS may require you to log out after changing it.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Section("Statistics order") {
                     ForEach(menuBarOrder) { metric in
                         HStack(spacing: 10) {
@@ -177,6 +194,11 @@ struct SettingsView: View {
 
     private func saveMenuBarOrder(_ metrics: [MenuBarMetric]) {
         storedMenuBarOrder = MenuBarMetric.encode(metrics)
+    }
+
+    private func openDesktopAndDockSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.Desktop-Settings.extension") else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private var dashboardShortcutBinding: Binding<DashboardShortcut?> {

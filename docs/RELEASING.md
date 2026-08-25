@@ -31,6 +31,8 @@ Every push to `master`, including a merged pull request, runs the release workfl
 
 The generated semantic version is passed to Xcode as `MARKETING_VERSION`. The GitHub Actions run number is passed as `CURRENT_PROJECT_VERSION`, so the packaged app reports the same release version with a monotonically increasing build number.
 
+Each release description is generated automatically from the pull requests and contributors included since the previous release, with a link to the full changelog. Ad-hoc releases prepend their signing notice to those generated notes.
+
 To intentionally increment the minor or major component, open **Actions → Publish Release → Run workflow** and select the desired bump. A workflow rerun for a commit that already has a release tag reuses that tag instead of creating another version.
 
 When the workflow finishes, confirm that both assets appear on the repository's Releases page. The installer URL will then work without another code change.

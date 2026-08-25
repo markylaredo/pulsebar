@@ -294,23 +294,23 @@ jobs:
               --clobber
             gh release edit "$RELEASE_TAG" --latest
           else
-            if [[ "$SIGNING_MODE" == "developer-id" ]]; then
-              gh release create "$RELEASE_TAG" \
-                "$release_directory/PulseBar.zip" \
-                "$release_directory/PulseBar.zip.sha256" \
-                --target "$GITHUB_SHA" \
-                --title "PulseBar ${RELEASE_TAG#v}" \
-                --generate-notes \
-                --latest
-            else
-              gh release create "$RELEASE_TAG" \
-                "$release_directory/PulseBar.zip" \
-                "$release_directory/PulseBar.zip.sha256" \
-                --target "$GITHUB_SHA" \
-                --title "PulseBar ${RELEASE_TAG#v}" \
-                --notes "This release is ad-hoc signed and not notarized because Apple Developer credentials were not configured. The curl installer verifies its checksum and code signature before installation." \
-                --latest
+            release_options=(
+              --target "$GITHUB_SHA"
+              --title "PulseBar ${RELEASE_TAG#v}"
+              --generate-notes
+              --latest
+            )
+            if [[ "$SIGNING_MODE" != "developer-id" ]]; then
+              release_options+=(
+                --notes
+                "This release is ad-hoc signed and not notarized because Apple Developer credentials were not configured. The curl installer verifies its checksum and code signature before installation."
+              )
             fi
+
+            gh release create "$RELEASE_TAG" \
+              "$release_directory/PulseBar.zip" \
+              "$release_directory/PulseBar.zip.sha256" \
+              "${release_options[@]}"
           fi
 
       - name: Remove temporary signing keychain

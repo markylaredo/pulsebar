@@ -2,26 +2,71 @@ import AppKit
 import Foundation
 import Observation
 
-actor MetricsCollector {
-    private var cpuReader = CPUReader()
-    private let memoryReader = MemoryReader()
-    private var networkReader = NetworkReader()
-    private var diskReader = DiskReader()
-    private let storageReader = StorageReader()
-    private let batteryReader = BatteryReader()
+private actor CPUReaderWorker {
+    private var reader = CPUReader()
 
-    func cpu() -> CPUStats { cpuReader.read() }
-    func memory() -> MemoryStats { memoryReader.read() }
-    func network() -> NetworkStats { networkReader.read() }
-    func disk() -> DiskStats { diskReader.read() }
-    func storage() -> StorageStats { storageReader.read() }
-    func battery() -> BatteryStats? { batteryReader.read() }
-    func thermal() -> ThermalStats { ThermalStats(ProcessInfo.processInfo.thermalState) }
+    func read() -> CPUStats { reader.read() }
+    func reset() { reader.reset() }
+}
 
-    func resetBaselines() {
-        cpuReader.reset()
-        networkReader.reset()
-        diskReader.reset()
+private actor MemoryReaderWorker {
+    private let reader = MemoryReader()
+
+    func read() -> MemoryStats { reader.read() }
+}
+
+private actor NetworkReaderWorker {
+    private var reader = NetworkReader()
+
+    func read() -> NetworkStats { reader.read() }
+    func reset() { reader.reset() }
+}
+
+private actor DiskReaderWorker {
+    private var reader = DiskReader()
+
+    func read() -> DiskStats { reader.read() }
+    func reset() { reader.reset() }
+}
+
+private actor StorageReaderWorker {
+    private let reader = StorageReader()
+
+    func read() -> StorageStats { reader.read() }
+}
+
+private actor BatteryReaderWorker {
+    private let reader = BatteryReader()
+
+    func read() -> BatteryStats? { reader.read() }
+}
+
+private actor ThermalReaderWorker {
+    func read() -> ThermalStats { ThermalStats(ProcessInfo.processInfo.thermalState) }
+}
+
+final class MetricsCollector: Sendable {
+    private let cpuReader = CPUReaderWorker()
+    private let memoryReader = MemoryReaderWorker()
+    private let networkReader = NetworkReaderWorker()
+    private let diskReader = DiskReaderWorker()
+    private let storageReader = StorageReaderWorker()
+    private let batteryReader = BatteryReaderWorker()
+    private let thermalReader = ThermalReaderWorker()
+
+    func cpu() async -> CPUStats { await cpuReader.read() }
+    func memory() async -> MemoryStats { await memoryReader.read() }
+    func network() async -> NetworkStats { await networkReader.read() }
+    func disk() async -> DiskStats { await diskReader.read() }
+    func storage() async -> StorageStats { await storageReader.read() }
+    func battery() async -> BatteryStats? { await batteryReader.read() }
+    func thermal() async -> ThermalStats { await thermalReader.read() }
+
+    func resetBaselines() async {
+        async let cpu: Void = cpuReader.reset()
+        async let network: Void = networkReader.reset()
+        async let disk: Void = diskReader.reset()
+        _ = await (cpu, network, disk)
     }
 }
 

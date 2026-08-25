@@ -27,16 +27,11 @@ If none are configured, the workflow still publishes an ad-hoc signed, non-notar
 
 ## Publish a release
 
-After the release changes are merged into `master`, create and push a semantic version tag:
+Every push to `master`, including a merged pull request, runs the release workflow. The workflow finds the latest stable semantic version tag and increments its patch component automatically. For example, the first `master` push after `v1.0.0` publishes `v1.0.1`.
 
-```sh
-git switch master
-git pull --ff-only
-git tag v1.0.0
-git push origin v1.0.0
-```
+The generated semantic version is passed to Xcode as `MARKETING_VERSION`. The GitHub Actions run number is passed as `CURRENT_PROJECT_VERSION`, so the packaged app reports the same release version with a monotonically increasing build number.
 
-The workflow runs the tests and publishes the release automatically. You can also open **Actions → Publish Release → Run workflow** and enter a tag such as `v1.0.0`.
+To intentionally increment the minor or major component, open **Actions → Publish Release → Run workflow** and select the desired bump. A workflow rerun for a commit that already has a release tag reuses that tag instead of creating another version.
 
 When the workflow finishes, confirm that both assets appear on the repository's Releases page. The installer URL will then work without another code change.
 

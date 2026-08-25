@@ -2,28 +2,33 @@ name: Publish Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - master
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Release tag, for example v1.0.0"
+      bump:
+        description: "Semantic version component to increment"
         required: true
-        type: string
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
 
 concurrency:
-  group: pulsebar-release-${{ github.ref }}
-  cancel-in-progress: false
+  group: pulsebar-release
+  queue: max
 
 jobs:
   release:
     name: Build and publish
+    if: github.ref == 'refs/heads/master'
     runs-on: macos-15-intel
     env:
-      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
       MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
       MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -35,10 +40,95 @@ jobs:
     steps:
       - name: Check out the release source
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Determine release version
+        id: version
+        shell: bash
+        env:
+          BUMP_TYPE: ${{ github.event_name == 'workflow_dispatch' && inputs.bump || 'patch' }}
+        run: |
+          set -euo pipefail
+
+          find_stable_tag() {
+            local excluded_commit="${1:-}"
+            while IFS= read -r tag; do
+              if [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                if [[ -n "$excluded_commit" ]] \
+                  && [[ "$(git rev-list -n 1 "$tag")" == "$excluded_commit" ]]; then
+                  continue
+                fi
+                printf '%s\n' "$tag"
+                return 0
+              fi
+            done
+            return 0
+          }
+
+          existing_tag=""
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            existing_tag="$(find_stable_tag < <(
+              git tag --points-at "$GITHUB_SHA" --sort=-version:refname
+            ))"
+          fi
+
+          if [[ -n "$existing_tag" ]]; then
+            release_tag="$existing_tag"
+            echo "Reusing $release_tag for commit $GITHUB_SHA."
+          else
+            excluded_commit=""
+            if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+              # Ignore releases already created for this commit so rerunning the
+              # same manual bump produces the same version instead of another one.
+              excluded_commit="$GITHUB_SHA"
+            fi
+            latest_tag="$(find_stable_tag "$excluded_commit" < <(
+              git tag --list --sort=-version:refname
+            ))"
+            latest_tag="${latest_tag:-v0.0.0}"
+
+            if [[ ! "$latest_tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              echo "Unable to parse latest stable release tag: $latest_tag" >&2
+              exit 1
+            fi
+
+            major="${BASH_REMATCH[1]}"
+            minor="${BASH_REMATCH[2]}"
+            patch="${BASH_REMATCH[3]}"
+
+            case "$BUMP_TYPE" in
+              major)
+                major=$((major + 1))
+                minor=0
+                patch=0
+                ;;
+              minor)
+                minor=$((minor + 1))
+                patch=0
+                ;;
+              patch)
+                patch=$((patch + 1))
+                ;;
+              *)
+                echo "Unsupported version bump: $BUMP_TYPE" >&2
+                exit 1
+                ;;
+            esac
+
+            release_tag="v${major}.${minor}.${patch}"
+          fi
+
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "version=${release_tag#v}" >> "$GITHUB_OUTPUT"
+          echo "build=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "Publishing PulseBar ${release_tag#v} (build $GITHUB_RUN_NUMBER)."
 
       - name: Validate release configuration
         id: release_configuration
         shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
 
@@ -115,6 +205,9 @@ jobs:
 
       - name: Build universal release
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          BUILD_NUMBER: ${{ steps.version.outputs.build }}
         run: |
           set -euo pipefail
           xcodebuild build \
@@ -124,6 +217,8 @@ jobs:
             -derivedDataPath .build-release \
             ARCHS='arm64 x86_64' \
             ONLY_ACTIVE_ARCH=NO \
+            MARKETING_VERSION="$RELEASE_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Sign release
@@ -186,6 +281,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
           SIGNING_MODE: ${{ steps.release_configuration.outputs.signing_mode }}
         run: |
           set -euo pipefail

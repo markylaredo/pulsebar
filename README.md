@@ -5,7 +5,7 @@
 
   ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple&logoColor=white)
   ![Swift 5](https://img.shields.io/badge/Swift-5-F05138?logo=swift&logoColor=white)
-  ![Version 1.0](https://img.shields.io/badge/version-1.0-1688f0)
+  ![Latest release](https://img.shields.io/github/v/release/markylaredo/pulsebar)
   [![PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-6f42c1)](LICENSE)
 </div>
 
@@ -113,4 +113,3 @@ If you would like to support continued development, you can [send a tip through 
 ## License
 
 PulseBar is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). Personal and other non-commercial use is welcome. Selling PulseBar, including modified copies, requires a separate written commercial license from the copyright holder.
-

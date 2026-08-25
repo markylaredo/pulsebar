@@ -1,0 +1,11 @@
+{
+    "schema_version": 2,
+    "commit": "21f293ad86ca51388dcb6918c9780dbfded7c251",
+    "indexed_at": "2026-08-22T16:48:20Z",
+    "project": "Users-markanthony-projects-pulsebar",
+    "nodes": 1376,
+    "edges": 2280,
+    "original_size": 3997696,
+    "compressed_size": 311675,
+    "compression_level": 3
+}

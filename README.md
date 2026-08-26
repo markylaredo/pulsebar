@@ -105,10 +105,10 @@ Temperature and fan RPM are not available in V1. Apple does not provide a stable
 
 If PulseBar is useful to you, a ⭐ helps other Mac users find it. Bug reports and focused improvements are welcome through [GitHub Issues](https://github.com/markylaredo/pulsebar/issues).
 
-If you would like to support continued development, you can [send a tip through PayPal](https://paypal.me/markanthony495).
+If you would like to support continued development, you can [buy me a coffee](https://buymeacoffee.com/markanthontf) or [send a tip through PayPal](https://paypal.me/markanthony495).
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-FFDD00?logo=buymeacoffee&logoColor=000000)](https://buymeacoffee.com/markanthontf)
 [![Support PulseBar on PayPal](https://img.shields.io/badge/Support-PayPal-0070BA?logo=paypal&logoColor=white)](https://paypal.me/markanthony495)
-
 
 ## License
 

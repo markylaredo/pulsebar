@@ -10,12 +10,33 @@ struct CPUTicks: Equatable, Sendable {
     var busy: UInt64 { user &+ system &+ nice }
 }
 
+struct CPUBreakdown: Equatable, Sendable {
+    let user: Double
+    let system: Double
+    let idle: Double
+
+    var totalUsage: Double { min(max(user + system, 0), 1) }
+}
+
 enum CounterMath {
     static func cpuUsage(previous: CPUTicks, current: CPUTicks) -> Double? {
-        guard current.total >= previous.total, current.busy >= previous.busy else { return nil }
+        cpuBreakdown(previous: previous, current: current)?.totalUsage
+    }
+
+    static func cpuBreakdown(previous: CPUTicks, current: CPUTicks) -> CPUBreakdown? {
+        guard current.user >= previous.user,
+              current.system >= previous.system,
+              current.idle >= previous.idle,
+              current.nice >= previous.nice,
+              current.total >= previous.total else { return nil }
         let totalDelta = current.total - previous.total
         guard totalDelta > 0 else { return nil }
-        return min(max(Double(current.busy - previous.busy) / Double(totalDelta), 0), 1)
+        let divisor = Double(totalDelta)
+        return CPUBreakdown(
+            user: Double(current.user - previous.user + current.nice - previous.nice) / divisor,
+            system: Double(current.system - previous.system) / divisor,
+            idle: Double(current.idle - previous.idle) / divisor
+        )
     }
 
     static func rate(previous: UInt64, current: UInt64, elapsed: TimeInterval) -> Double? {

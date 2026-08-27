@@ -10,6 +10,8 @@ struct SystemExplorerView: View {
                     .tag(SystemExplorerDestination.overview)
                 Label("Processes", systemImage: "list.bullet.rectangle")
                     .tag(SystemExplorerDestination.processes)
+                Label("Network", systemImage: "network")
+                    .tag(SystemExplorerDestination.network)
             }
             .listStyle(.sidebar)
             .navigationTitle("PulseBar")
@@ -20,6 +22,8 @@ struct SystemExplorerView: View {
                 OverviewView()
             case .processes:
                 ProcessListView()
+            case .network:
+                NetworkView()
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -29,6 +33,7 @@ struct SystemExplorerView: View {
 private enum SystemExplorerDestination: Hashable {
     case overview
     case processes
+    case network
 }
 
 struct OverviewView: View {

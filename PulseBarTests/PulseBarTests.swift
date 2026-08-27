@@ -8,6 +8,31 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(CounterMath.cpuUsage(previous: previous, current: current) ?? -1, 0.5, accuracy: 0.0001)
     }
 
+    func testCPUBreakdownUsesTickDeltas() throws {
+        let previous = CPUTicks(user: 100, system: 100, idle: 800, nice: 0)
+        let current = CPUTicks(user: 150, system: 125, idle: 875, nice: 0)
+        let breakdown = try XCTUnwrap(CounterMath.cpuBreakdown(previous: previous, current: current))
+
+        XCTAssertEqual(breakdown.user, 1.0 / 3.0, accuracy: 0.0001)
+        XCTAssertEqual(breakdown.system, 1.0 / 6.0, accuracy: 0.0001)
+        XCTAssertEqual(breakdown.idle, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(breakdown.totalUsage, 0.5, accuracy: 0.0001)
+    }
+
+    func testPerformanceHistoriesUseBoundedExtendedCapacity() {
+        let histories = MetricHistories()
+        XCTAssertEqual(histories.cpu.capacity, 180)
+        XCTAssertEqual(histories.memory.capacity, 180)
+        XCTAssertEqual(histories.diskRead.capacity, 180)
+        XCTAssertEqual(histories.download.capacity, 180)
+    }
+
+    func testMemoryPressureMapping() {
+        XCTAssertEqual(MemoryPressureStats(.normal), .normal)
+        XCTAssertEqual(MemoryPressureStats(.warning), .elevated)
+        XCTAssertEqual(MemoryPressureStats(.critical), .critical)
+    }
+
     func testCounterRateAndResetConditions() {
         XCTAssertEqual(CounterMath.rate(previous: 1_000_000, current: 4_000_000, elapsed: 1), 3_000_000)
         XCTAssertNil(CounterMath.rate(previous: 4_000_000, current: 1_000_000, elapsed: 1))
@@ -54,6 +79,36 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(MetricFormatter.packetRate(1.6), "2 pkt/s")
         XCTAssertEqual(MetricFormatter.uptime(3 * 86_400 + 14 * 3_600), "3d 14h")
         XCTAssertEqual(MetricFormatter.uptime(5 * 3_600 + 32 * 60), "5h 32m")
+        XCTAssertEqual(MetricFormatter.bytes(1_020_000_000_000), "1.0 TB")
+    }
+
+    func testVolumeCapacityAccountingAndStatus() {
+        let volume = VolumeSnapshot(
+            id: "test",
+            name: "Test Disk",
+            mountPath: "/Volumes/Test Disk",
+            totalCapacity: 1_000,
+            availableCapacity: 150,
+            filesystem: "APFS",
+            isReadOnly: false,
+            isLocal: true,
+            isInternal: false,
+            isRemovable: false,
+            isPrimary: false
+        )
+
+        XCTAssertEqual(volume.usedCapacity, 850)
+        XCTAssertEqual(volume.usage ?? -1, 0.85, accuracy: 0.0001)
+        XCTAssertEqual(volume.capacityStatus, .gettingFull)
+        XCTAssertEqual(volume.kind, .externalDrive)
+    }
+
+    func testStorageCapacityStatusThresholds() {
+        XCTAssertEqual(StorageCapacityStatus(usage: 0.79), .normal)
+        XCTAssertEqual(StorageCapacityStatus(usage: 0.8), .gettingFull)
+        XCTAssertEqual(StorageCapacityStatus(usage: 0.9), .gettingFull)
+        XCTAssertEqual(StorageCapacityStatus(usage: 0.91), .lowFreeSpace)
+        XCTAssertEqual(StorageCapacityStatus(usage: nil), .unavailable)
     }
 
     func testProcessCPUPercentageUsesCumulativeTimeDeltas() {
@@ -92,6 +147,57 @@ final class PulseBarTests: XCTestCase {
         XCTAssertFalse(process.matches("Safari"))
     }
 
+    func testNetworkEndpointFormattingSupportsIPv4AndIPv6() {
+        XCTAssertEqual(
+            NetworkEndpoint(address: "192.168.1.42", port: 5_432).displayName,
+            "192.168.1.42:5432"
+        )
+        XCTAssertEqual(
+            NetworkEndpoint(address: "2607:f8b0:4005::200e", port: 443).displayName,
+            "[2607:f8b0:4005::200e]:443"
+        )
+        XCTAssertEqual(NetworkEndpoint(address: "0.0.0.0", port: 3_000).displayName, "*:3000")
+    }
+
+    func testNetworkConnectionSearchAndFilters() {
+        let connection = networkConnection(
+            processName: "postgres",
+            pid: 4_821,
+            transport: .tcp,
+            local: NetworkEndpoint(address: "127.0.0.1", port: 5_432),
+            remote: NetworkEndpoint(address: "127.0.0.1", port: 61_243),
+            state: .established
+        )
+
+        XCTAssertTrue(connection.matches("POST"))
+        XCTAssertTrue(connection.matches("4821"))
+        XCTAssertTrue(connection.matches("5432"))
+        XCTAssertTrue(connection.matches("127.0.0"))
+        XCTAssertFalse(connection.matches("Safari"))
+        XCTAssertTrue(NetworkConnectionFilter.all.includes(connection))
+        XCTAssertTrue(NetworkConnectionFilter.tcp.includes(connection))
+        XCTAssertTrue(NetworkConnectionFilter.established.includes(connection))
+        XCTAssertFalse(NetworkConnectionFilter.udp.includes(connection))
+        XCTAssertFalse(NetworkConnectionFilter.listening.includes(connection))
+    }
+
+    func testUDPBoundSocketIsListeningWithoutTCPState() {
+        let socket = networkConnection(
+            processName: "mDNSResponder",
+            pid: 123,
+            transport: .udp,
+            local: NetworkEndpoint(address: "0.0.0.0", port: 5_353),
+            remote: nil,
+            state: nil
+        )
+
+        XCTAssertNil(socket.state)
+        XCTAssertEqual(socket.stateName, "Bound")
+        XCTAssertTrue(socket.isListening)
+        XCTAssertTrue(NetworkConnectionFilter.listening.includes(socket))
+        XCTAssertFalse(NetworkConnectionFilter.established.includes(socket))
+    }
+
     func testActivityMonitorNetworkAccounting() {
         let previous = NetworkCounters(receivedBytes: 1_000, sentBytes: 2_000, receivedPackets: 100, sentPackets: 200)
         let current = NetworkCounters(receivedBytes: 1_600, sentBytes: 3_000, receivedPackets: 120, sentPackets: 208)
@@ -105,6 +211,34 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(stats.totalTransmitted, 3_000)
         XCTAssertEqual(stats.totalPacketsReceived, 120)
         XCTAssertEqual(stats.totalPacketsSent, 208)
+    }
+
+    private func networkConnection(
+        processName: String,
+        pid: pid_t,
+        transport: NetworkTransport,
+        local: NetworkEndpoint,
+        remote: NetworkEndpoint?,
+        state: NetworkConnectionState?
+    ) -> NetworkConnectionSnapshot {
+        let identity = ProcessIdentity(pid: pid, startTimeMicroseconds: 100)
+        return NetworkConnectionSnapshot(
+            id: NetworkConnectionID(
+                pid: pid,
+                socketHandle: 1,
+                transport: transport,
+                local: local,
+                remote: remote
+            ),
+            processIdentity: identity,
+            processName: processName,
+            executablePath: nil,
+            transport: transport,
+            local: local,
+            remote: remote,
+            state: state,
+            interfaceName: "lo0"
+        )
     }
 
     func testNetworkCounterResetDoesNotCreateFalseTrafficSpike() {

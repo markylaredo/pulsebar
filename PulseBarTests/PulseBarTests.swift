@@ -8,6 +8,31 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(CounterMath.cpuUsage(previous: previous, current: current) ?? -1, 0.5, accuracy: 0.0001)
     }
 
+    func testCPUBreakdownUsesTickDeltas() throws {
+        let previous = CPUTicks(user: 100, system: 100, idle: 800, nice: 0)
+        let current = CPUTicks(user: 150, system: 125, idle: 875, nice: 0)
+        let breakdown = try XCTUnwrap(CounterMath.cpuBreakdown(previous: previous, current: current))
+
+        XCTAssertEqual(breakdown.user, 1.0 / 3.0, accuracy: 0.0001)
+        XCTAssertEqual(breakdown.system, 1.0 / 6.0, accuracy: 0.0001)
+        XCTAssertEqual(breakdown.idle, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(breakdown.totalUsage, 0.5, accuracy: 0.0001)
+    }
+
+    func testPerformanceHistoriesUseBoundedExtendedCapacity() {
+        let histories = MetricHistories()
+        XCTAssertEqual(histories.cpu.capacity, 180)
+        XCTAssertEqual(histories.memory.capacity, 180)
+        XCTAssertEqual(histories.diskRead.capacity, 180)
+        XCTAssertEqual(histories.download.capacity, 180)
+    }
+
+    func testMemoryPressureMapping() {
+        XCTAssertEqual(MemoryPressureStats(.normal), .normal)
+        XCTAssertEqual(MemoryPressureStats(.warning), .elevated)
+        XCTAssertEqual(MemoryPressureStats(.critical), .critical)
+    }
+
     func testCounterRateAndResetConditions() {
         XCTAssertEqual(CounterMath.rate(previous: 1_000_000, current: 4_000_000, elapsed: 1), 3_000_000)
         XCTAssertNil(CounterMath.rate(previous: 4_000_000, current: 1_000_000, elapsed: 1))
@@ -54,6 +79,36 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(MetricFormatter.packetRate(1.6), "2 pkt/s")
         XCTAssertEqual(MetricFormatter.uptime(3 * 86_400 + 14 * 3_600), "3d 14h")
         XCTAssertEqual(MetricFormatter.uptime(5 * 3_600 + 32 * 60), "5h 32m")
+        XCTAssertEqual(MetricFormatter.bytes(1_020_000_000_000), "1.0 TB")
+    }
+
+    func testVolumeCapacityAccountingAndStatus() {
+        let volume = VolumeSnapshot(
+            id: "test",
+            name: "Test Disk",
+            mountPath: "/Volumes/Test Disk",
+            totalCapacity: 1_000,
+            availableCapacity: 150,
+            filesystem: "APFS",
+            isReadOnly: false,
+            isLocal: true,
+            isInternal: false,
+            isRemovable: false,
+            isPrimary: false
+        )
+
+        XCTAssertEqual(volume.usedCapacity, 850)
+        XCTAssertEqual(volume.usage ?? -1, 0.85, accuracy: 0.0001)
+        XCTAssertEqual(volume.capacityStatus, .gettingFull)
+        XCTAssertEqual(volume.kind, .externalDrive)
+    }
+
+    func testStorageCapacityStatusThresholds() {
+        XCTAssertEqual(StorageCapacityStatus(usage: 0.79), .normal)
+        XCTAssertEqual(StorageCapacityStatus(usage: 0.8), .gettingFull)
+        XCTAssertEqual(StorageCapacityStatus(usage: 0.9), .gettingFull)
+        XCTAssertEqual(StorageCapacityStatus(usage: 0.91), .lowFreeSpace)
+        XCTAssertEqual(StorageCapacityStatus(usage: nil), .unavailable)
     }
 
     func testProcessCPUPercentageUsesCumulativeTimeDeltas() {

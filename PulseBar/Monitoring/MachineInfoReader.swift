@@ -1,12 +1,14 @@
 import Darwin
 import Foundation
+import Metal
 
 struct MachineInfoReader {
     func read() -> MachineInfo {
         MachineInfo(
             name: Host.current().localizedName ?? "Mac",
             processor: sysctlString("machdep.cpu.brand_string") ?? architectureName,
-            physicalMemory: ProcessInfo.processInfo.physicalMemory
+            physicalMemory: ProcessInfo.processInfo.physicalMemory,
+            gpu: MTLCreateSystemDefaultDevice()?.name
         )
     }
 

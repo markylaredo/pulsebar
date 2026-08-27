@@ -22,6 +22,10 @@ actor NetworkInspectorProvider {
 
     private var metadataCache: [ProcessIdentity: ProcessMetadata] = [:]
 
+    func interfaces() -> [NetworkInterfaceSnapshot] {
+        readInterfaces()
+    }
+
     func snapshot() -> NetworkInspectorSnapshot {
         let interfaces = readInterfaces()
         let addressToInterface = interfaces.reduce(into: [String: String]()) { result, interface in

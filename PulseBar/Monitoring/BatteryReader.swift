@@ -14,13 +14,30 @@ struct BatteryReader {
             let powerSource = description[kIOPSPowerSourceStateKey] as? String
             let timeKey = charging ? kIOPSTimeToFullChargeKey : kIOPSTimeToEmptyKey
             let minutes = (description[timeKey] as? NSNumber)?.intValue
+            let cycleCount = (description["CycleCount"] as? NSNumber)?.intValue
+            let condition = batteryCondition(description["BatteryHealth"])
             return BatteryStats(
                 percentage: maximum > 0 ? min(max(current / maximum, 0), 1) : 0,
                 isCharging: charging,
                 isConnectedToPower: powerSource == kIOPSACPowerValue,
-                timeRemainingMinutes: (minutes ?? 0) > 0 ? minutes : nil
+                timeRemainingMinutes: (minutes ?? 0) > 0 ? minutes : nil,
+                cycleCount: cycleCount,
+                condition: condition
             )
         }
         return nil
+    }
+
+    private func batteryCondition(_ value: Any?) -> String? {
+        if let value = value as? String, !value.isEmpty {
+            return value.localizedCaseInsensitiveCompare("Good") == .orderedSame ? "Normal" : value
+        }
+        guard let value = (value as? NSNumber)?.intValue else { return nil }
+        switch value {
+        case 3: return "Normal"
+        case 2: return "Fair"
+        case 1: return "Poor"
+        default: return nil
+        }
     }
 }

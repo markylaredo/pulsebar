@@ -70,6 +70,8 @@ struct BatteryStats: Sendable {
     var isCharging: Bool
     var isConnectedToPower: Bool
     var timeRemainingMinutes: Int?
+    var cycleCount: Int?
+    var condition: String?
 }
 
 enum ThermalStats: String, Sendable {

@@ -114,6 +114,12 @@ struct NetworkInterfaceSnapshot: Identifiable, Equatable, Sendable {
     var name: String { id }
     var isActive: Bool { isUp && (isRunning || kind == .loopback) }
     var primaryAddress: String? { ipv4Addresses.first ?? ipv6Addresses.first }
+    var isSystemRelevant: Bool {
+        if isPrimary { return true }
+        guard kind != .loopback, kind != .other else { return false }
+        return !ipv4Addresses.isEmpty
+            || ipv6Addresses.contains { !$0.lowercased().hasPrefix("fe80:") }
+    }
     var status: String {
         if isPrimary && isActive { return "Primary" }
         return isActive ? "Active" : "Inactive"

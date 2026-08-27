@@ -54,6 +54,36 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(MetricFormatter.packetRate(1.6), "2 pkt/s")
         XCTAssertEqual(MetricFormatter.uptime(3 * 86_400 + 14 * 3_600), "3d 14h")
         XCTAssertEqual(MetricFormatter.uptime(5 * 3_600 + 32 * 60), "5h 32m")
+        XCTAssertEqual(MetricFormatter.bytes(1_020_000_000_000), "1.0 TB")
+    }
+
+    func testVolumeCapacityAccountingAndStatus() {
+        let volume = VolumeSnapshot(
+            id: "test",
+            name: "Test Disk",
+            mountPath: "/Volumes/Test Disk",
+            totalCapacity: 1_000,
+            availableCapacity: 150,
+            filesystem: "APFS",
+            isReadOnly: false,
+            isLocal: true,
+            isInternal: false,
+            isRemovable: false,
+            isPrimary: false
+        )
+
+        XCTAssertEqual(volume.usedCapacity, 850)
+        XCTAssertEqual(volume.usage ?? -1, 0.85, accuracy: 0.0001)
+        XCTAssertEqual(volume.capacityStatus, .gettingFull)
+        XCTAssertEqual(volume.kind, .externalDrive)
+    }
+
+    func testStorageCapacityStatusThresholds() {
+        XCTAssertEqual(StorageCapacityStatus(usage: 0.79), .normal)
+        XCTAssertEqual(StorageCapacityStatus(usage: 0.8), .gettingFull)
+        XCTAssertEqual(StorageCapacityStatus(usage: 0.9), .gettingFull)
+        XCTAssertEqual(StorageCapacityStatus(usage: 0.91), .lowFreeSpace)
+        XCTAssertEqual(StorageCapacityStatus(usage: nil), .unavailable)
     }
 
     func testProcessCPUPercentageUsesCumulativeTimeDeltas() {

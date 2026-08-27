@@ -11,13 +11,16 @@ struct DashboardView: View {
     @AppStorage(SettingsKey.dashboardOpacity) private var dashboardOpacity = DashboardAppearance.defaultOpacityLevel
     @AppStorage(SettingsKey.dashboardPinned) private var dashboardPinned = true
     @State private var isPerCoreExpanded = false
+    let openOverviewAction: (() -> Void)?
     let openSettingsAction: (() -> Void)?
     let dashboardPinAction: ((Bool) -> Void)?
 
     init(
+        openOverviewAction: (() -> Void)? = nil,
         openSettingsAction: (() -> Void)? = nil,
         dashboardPinAction: ((Bool) -> Void)? = nil
     ) {
+        self.openOverviewAction = openOverviewAction
         self.openSettingsAction = openSettingsAction
         self.dashboardPinAction = dashboardPinAction
     }
@@ -77,6 +80,16 @@ struct DashboardView: View {
                 Text(machineDescription).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            Button { openOverviewAction?() } label: {
+                Image(systemName: "rectangle.grid.2x2")
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Open System Overview")
+            .accessibilityLabel("Open System Overview")
+            .keyboardShortcut("o", modifiers: .command)
+            .disabled(openOverviewAction == nil)
             Toggle(isOn: Binding(
                 get: { dashboardPinned },
                 set: { isPinned in

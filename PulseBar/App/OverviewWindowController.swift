@@ -5,14 +5,14 @@ import SwiftUI
 final class OverviewWindowController: NSWindowController {
     init(monitor: SystemMonitor) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 860, height: 620),
+            contentRect: NSRect(x: 0, y: 0, width: 1_080, height: 680),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "PulseBar"
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 620, height: 500)
+        window.minSize = NSSize(width: 880, height: 540)
         window.tabbingMode = .disallowed
         window.center()
         window.setFrameAutosaveName("PulseBarSystemOverview")

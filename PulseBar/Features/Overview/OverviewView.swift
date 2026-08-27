@@ -8,12 +8,19 @@ struct SystemExplorerView: View {
             List(selection: $selection) {
                 Label("Overview", systemImage: "gauge.with.dots.needle.67percent")
                     .tag(SystemExplorerDestination.overview)
+                Label("Processes", systemImage: "list.bullet.rectangle")
+                    .tag(SystemExplorerDestination.processes)
             }
             .listStyle(.sidebar)
             .navigationTitle("PulseBar")
             .navigationSplitViewColumnWidth(min: 150, ideal: 170, max: 210)
         } detail: {
-            OverviewView()
+            switch selection {
+            case .overview:
+                OverviewView()
+            case .processes:
+                ProcessListView()
+            }
         }
         .navigationSplitViewStyle(.balanced)
     }
@@ -21,6 +28,7 @@ struct SystemExplorerView: View {
 
 private enum SystemExplorerDestination: Hashable {
     case overview
+    case processes
 }
 
 struct OverviewView: View {

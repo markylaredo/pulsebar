@@ -136,7 +136,7 @@ actor ProcessMonitor {
             + TimeInterval(bsdInfo.pbi_start_tvusec) / 1_000_000
         return StableMetadata(
             name: name,
-            architecture: architecture(for: processID),
+            architecture: nil,
             executablePath: path,
             launchDate: Date(timeIntervalSince1970: startTime),
             userID: bsdInfo.pbi_uid
@@ -150,23 +150,6 @@ actor ProcessMonitor {
         }
         guard length > 0 else { return nil }
         return String(cString: buffer)
-    }
-
-    private func architecture(for processID: pid_t) -> String? {
-        var info = proc_archinfo()
-        let expectedSize = Int32(MemoryLayout<proc_archinfo>.size)
-        let actualSize = withUnsafeMutablePointer(to: &info) { pointer in
-            proc_pidinfo(processID, PROC_PIDARCHINFO, 0, pointer, expectedSize)
-        }
-        guard actualSize == expectedSize else { return nil }
-
-        switch info.p_cputype {
-        case CPU_TYPE_ARM64: return "arm64"
-        case CPU_TYPE_ARM: return "arm"
-        case CPU_TYPE_X86_64: return "x86_64"
-        case CPU_TYPE_X86: return "x86"
-        default: return nil
-        }
     }
 
     private func canTerminate(processID: pid_t, userID: uid_t) -> Bool {

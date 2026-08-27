@@ -1,10 +1,30 @@
+import Dispatch
 import Foundation
 
 struct CPUStats: Sendable {
     var totalUsage = 0.0
+    var userUsage = 0.0
+    var systemUsage = 0.0
+    var idleUsage = 1.0
     var coreUsage: [Double] = []
     var loadAverages: [Double] = []
     var logicalCoreCount = ProcessInfo.processInfo.processorCount
+}
+
+enum MemoryPressureStats: String, Sendable {
+    case normal = "Normal"
+    case elevated = "Elevated"
+    case critical = "Critical"
+
+    init(_ event: DispatchSource.MemoryPressureEvent) {
+        if event.contains(.critical) {
+            self = .critical
+        } else if event.contains(.warning) {
+            self = .elevated
+        } else {
+            self = .normal
+        }
+    }
 }
 
 struct MemoryStats: Sendable {
@@ -77,21 +97,23 @@ struct SystemMetrics: Sendable {
     var storage = StorageStats()
     var battery: BatteryStats?
     var thermal = ThermalStats.nominal
+    var memoryPressure = MemoryPressureStats.normal
 }
 
 struct MachineInfo: Sendable {
     var name = "Mac"
     var processor = "Unknown processor"
     var physicalMemory: UInt64 = 0
+    var gpu: String?
 }
 
 struct MetricHistories: Sendable {
-    var cpu = MetricHistory()
-    var memory = MetricHistory()
-    var download = MetricHistory()
-    var upload = MetricHistory()
-    var packetsReceived = MetricHistory()
-    var packetsSent = MetricHistory()
-    var diskRead = MetricHistory()
-    var diskWrite = MetricHistory()
+    var cpu = MetricHistory(capacity: 180)
+    var memory = MetricHistory(capacity: 180)
+    var download = MetricHistory(capacity: 180)
+    var upload = MetricHistory(capacity: 180)
+    var packetsReceived = MetricHistory(capacity: 180)
+    var packetsSent = MetricHistory(capacity: 180)
+    var diskRead = MetricHistory(capacity: 180)
+    var diskWrite = MetricHistory(capacity: 180)
 }

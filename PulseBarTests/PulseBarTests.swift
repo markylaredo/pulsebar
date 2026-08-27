@@ -44,6 +44,7 @@ final class PulseBarTests: XCTestCase {
 
     func testFormatting() {
         XCTAssertEqual(MetricFormatter.percentage(0.414), "41%")
+        XCTAssertEqual(MetricFormatter.processPercentage(42.14), "42.1%")
         XCTAssertEqual(MetricFormatter.bytes(1_000_000), "1 MB")
         XCTAssertEqual(MetricFormatter.memory(25_769_803_776), "24.00 GB")
         XCTAssertEqual(MetricFormatter.memory(0), "0 B")
@@ -53,6 +54,42 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(MetricFormatter.packetRate(1.6), "2 pkt/s")
         XCTAssertEqual(MetricFormatter.uptime(3 * 86_400 + 14 * 3_600), "3d 14h")
         XCTAssertEqual(MetricFormatter.uptime(5 * 3_600 + 32 * 60), "5h 32m")
+    }
+
+    func testProcessCPUPercentageUsesCumulativeTimeDeltas() {
+        let previous = ProcessCPUSample(
+            totalTimeNanoseconds: 1_000_000_000,
+            timestampNanoseconds: 5_000_000_000
+        )
+        let current = ProcessCPUSample(
+            totalTimeNanoseconds: 1_500_000_000,
+            timestampNanoseconds: 6_000_000_000
+        )
+
+        XCTAssertEqual(
+            ProcessCPUCalculator.percentage(previous: previous, current: current),
+            50,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(ProcessCPUCalculator.percentage(previous: nil, current: current), 0)
+    }
+
+    func testProcessSearchMatchesNameAndPID() {
+        let process = ProcessSnapshot(
+            id: ProcessIdentity(pid: 4_821, startTimeMicroseconds: 100),
+            name: "Xcode",
+            cpuUsage: 42.1,
+            residentMemory: 1_000,
+            threadCount: 12,
+            architecture: "arm64",
+            executablePath: "/Applications/Xcode.app/Contents/MacOS/Xcode",
+            launchDate: .distantPast,
+            canTerminate: true
+        )
+
+        XCTAssertTrue(process.matches("xCo"))
+        XCTAssertTrue(process.matches("4821"))
+        XCTAssertFalse(process.matches("Safari"))
     }
 
     func testActivityMonitorNetworkAccounting() {

@@ -47,6 +47,10 @@ enum MetricFormatter {
         "\(Int((min(max(value, 0), 1) * 100).rounded()))%"
     }
 
+    static func processPercentage(_ value: Double) -> String {
+        String(format: "%.1f%%", max(0, value))
+    }
+
     static func uptime(_ seconds: TimeInterval) -> String {
         let totalMinutes = max(0, Int(seconds)) / 60
         let days = totalMinutes / (24 * 60)

@@ -19,6 +19,10 @@
   <img src="docs/screenshots/dashboard.png" width="430" alt="PulseBar dashboard showing live CPU, memory, and network statistics">
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/system-explorer.gif" width="900" alt="PulseBar system explorer cycling through Overview, Performance, Network, and Storage">
+</p>
+
 ## Why PulseBar?
 
 I wanted a system monitor that stays out of the way but still gives me useful information at a glance. PulseBar lives entirely in the menu bar, opens quickly, and uses native macOS APIs—no Dock icon, analytics, or background database.
@@ -29,6 +33,9 @@ PulseBar was inspired by [Vitals](https://extensions.gnome.org/extension/1460/vi
 
 - Live CPU usage, load averages, and per-core utilization
 - Activity Monitor-style memory accounting
+- A sortable process explorer with per-process resource details
+- Performance history for CPU, memory, disk, and network activity
+- A searchable TCP and UDP connection inspector with process ownership
 - Network speed, packet rates, and session totals
 - Disk read/write activity and storage usage
 - Battery level and macOS thermal state
@@ -38,6 +45,33 @@ PulseBar was inspired by [Vitals](https://extensions.gnome.org/extension/1460/vi
 - System, light, and dark appearances with Liquid Glass controls
 
 The menu-bar labels can be compact or descriptive. Changes are saved automatically.
+
+## Explore your Mac
+
+Open the system explorer for a deeper look at live performance, processes, network connections, and storage without leaving PulseBar.
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/system-overview.png" alt="PulseBar System Overview with CPU, memory, network, disk, thermal, and uptime metrics">
+      <br><sub><b>System Overview</b> — essential metrics at a glance.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/performance.png" alt="PulseBar Performance view showing CPU history and system statistics">
+      <br><sub><b>Performance</b> — live history and detailed resource statistics.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/network-inspector.png" alt="PulseBar Network Inspector showing listening TCP and UDP sockets">
+      <br><sub><b>Network Inspector</b> — filter sockets and trace them back to processes.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/storage.png" alt="PulseBar Storage view showing volumes, capacity, and disk activity">
+      <br><sub><b>Storage</b> — volume capacity and disk activity in one view.</sub>
+    </td>
+  </tr>
+</table>
 
 ## Make it yours
 

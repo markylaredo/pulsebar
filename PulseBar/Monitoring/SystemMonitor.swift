@@ -79,10 +79,12 @@ final class SystemMonitor {
     private(set) var lastUpdated: Date?
     private let collector = MetricsCollector()
     private var monitoringTask: Task<Void, Never>?
+    private var memoryPressureSource: DispatchSourceMemoryPressure?
     private var observers: [NSObjectProtocol] = []
 
     init() {
         registerDefaults()
+        observeMemoryPressure()
         observeSleepAndWake()
         start()
     }
@@ -154,6 +156,22 @@ final class SystemMonitor {
                 self.start()
             }
         })
+    }
+
+    private func observeMemoryPressure() {
+        let source = DispatchSource.makeMemoryPressureSource(
+            eventMask: [.normal, .warning, .critical],
+            queue: .global(qos: .utility)
+        )
+        source.setEventHandler { [weak self, weak source] in
+            guard let source else { return }
+            let pressure = MemoryPressureStats(source.data)
+            Task { @MainActor [weak self] in
+                self?.metrics.memoryPressure = pressure
+            }
+        }
+        source.resume()
+        memoryPressureSource = source
     }
 
     private func registerDefaults() {

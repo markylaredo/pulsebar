@@ -17,7 +17,12 @@ struct CPUReader {
         stats.coreUsage = zip(previousTicks, current).map { CounterMath.cpuUsage(previous: $0, current: $1) ?? 0 }
         let previousTotal = previousTicks.reduce(CPUTicks(user: 0, system: 0, idle: 0, nice: 0), +)
         let currentTotal = current.reduce(CPUTicks(user: 0, system: 0, idle: 0, nice: 0), +)
-        stats.totalUsage = CounterMath.cpuUsage(previous: previousTotal, current: currentTotal) ?? 0
+        if let breakdown = CounterMath.cpuBreakdown(previous: previousTotal, current: currentTotal) {
+            stats.totalUsage = breakdown.totalUsage
+            stats.userUsage = breakdown.user
+            stats.systemUsage = breakdown.system
+            stats.idleUsage = breakdown.idle
+        }
         return stats
     }
 

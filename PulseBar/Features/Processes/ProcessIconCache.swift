@@ -11,14 +11,26 @@ final class ProcessIconCache {
     ) ?? NSImage()
 
     func icon(for process: ProcessSnapshot) -> NSImage {
-        if let cached = icons[process.id] {
+        icon(
+            for: process.id,
+            processID: process.pid,
+            executablePath: process.executablePath
+        )
+    }
+
+    func icon(
+        for identity: ProcessIdentity,
+        processID: pid_t,
+        executablePath: String?
+    ) -> NSImage {
+        if let cached = icons[identity] {
             return cached
         }
 
-        let resolved = NSRunningApplication(processIdentifier: process.pid)?.icon
-            ?? process.executablePath.map { NSWorkspace.shared.icon(forFile: $0) }
+        let resolved = NSRunningApplication(processIdentifier: processID)?.icon
+            ?? executablePath.map { NSWorkspace.shared.icon(forFile: $0) }
             ?? fallback
-        icons[process.id] = resolved
+        icons[identity] = resolved
         return resolved
     }
 

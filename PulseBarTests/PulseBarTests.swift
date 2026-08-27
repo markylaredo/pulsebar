@@ -92,6 +92,57 @@ final class PulseBarTests: XCTestCase {
         XCTAssertFalse(process.matches("Safari"))
     }
 
+    func testNetworkEndpointFormattingSupportsIPv4AndIPv6() {
+        XCTAssertEqual(
+            NetworkEndpoint(address: "192.168.1.42", port: 5_432).displayName,
+            "192.168.1.42:5432"
+        )
+        XCTAssertEqual(
+            NetworkEndpoint(address: "2607:f8b0:4005::200e", port: 443).displayName,
+            "[2607:f8b0:4005::200e]:443"
+        )
+        XCTAssertEqual(NetworkEndpoint(address: "0.0.0.0", port: 3_000).displayName, "*:3000")
+    }
+
+    func testNetworkConnectionSearchAndFilters() {
+        let connection = networkConnection(
+            processName: "postgres",
+            pid: 4_821,
+            transport: .tcp,
+            local: NetworkEndpoint(address: "127.0.0.1", port: 5_432),
+            remote: NetworkEndpoint(address: "127.0.0.1", port: 61_243),
+            state: .established
+        )
+
+        XCTAssertTrue(connection.matches("POST"))
+        XCTAssertTrue(connection.matches("4821"))
+        XCTAssertTrue(connection.matches("5432"))
+        XCTAssertTrue(connection.matches("127.0.0"))
+        XCTAssertFalse(connection.matches("Safari"))
+        XCTAssertTrue(NetworkConnectionFilter.all.includes(connection))
+        XCTAssertTrue(NetworkConnectionFilter.tcp.includes(connection))
+        XCTAssertTrue(NetworkConnectionFilter.established.includes(connection))
+        XCTAssertFalse(NetworkConnectionFilter.udp.includes(connection))
+        XCTAssertFalse(NetworkConnectionFilter.listening.includes(connection))
+    }
+
+    func testUDPBoundSocketIsListeningWithoutTCPState() {
+        let socket = networkConnection(
+            processName: "mDNSResponder",
+            pid: 123,
+            transport: .udp,
+            local: NetworkEndpoint(address: "0.0.0.0", port: 5_353),
+            remote: nil,
+            state: nil
+        )
+
+        XCTAssertNil(socket.state)
+        XCTAssertEqual(socket.stateName, "Bound")
+        XCTAssertTrue(socket.isListening)
+        XCTAssertTrue(NetworkConnectionFilter.listening.includes(socket))
+        XCTAssertFalse(NetworkConnectionFilter.established.includes(socket))
+    }
+
     func testActivityMonitorNetworkAccounting() {
         let previous = NetworkCounters(receivedBytes: 1_000, sentBytes: 2_000, receivedPackets: 100, sentPackets: 200)
         let current = NetworkCounters(receivedBytes: 1_600, sentBytes: 3_000, receivedPackets: 120, sentPackets: 208)
@@ -105,6 +156,34 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(stats.totalTransmitted, 3_000)
         XCTAssertEqual(stats.totalPacketsReceived, 120)
         XCTAssertEqual(stats.totalPacketsSent, 208)
+    }
+
+    private func networkConnection(
+        processName: String,
+        pid: pid_t,
+        transport: NetworkTransport,
+        local: NetworkEndpoint,
+        remote: NetworkEndpoint?,
+        state: NetworkConnectionState?
+    ) -> NetworkConnectionSnapshot {
+        let identity = ProcessIdentity(pid: pid, startTimeMicroseconds: 100)
+        return NetworkConnectionSnapshot(
+            id: NetworkConnectionID(
+                pid: pid,
+                socketHandle: 1,
+                transport: transport,
+                local: local,
+                remote: remote
+            ),
+            processIdentity: identity,
+            processName: processName,
+            executablePath: nil,
+            transport: transport,
+            local: local,
+            remote: remote,
+            state: state,
+            interfaceName: "lo0"
+        )
     }
 
     func testNetworkCounterResetDoesNotCreateFalseTrafficSpike() {

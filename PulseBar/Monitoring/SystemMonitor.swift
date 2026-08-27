@@ -32,7 +32,7 @@ private actor DiskReaderWorker {
 private actor StorageReaderWorker {
     private let reader = StorageReader()
 
-    func read() -> StorageStats { reader.read() }
+    func read() -> StorageInventory { reader.read() }
 }
 
 private actor BatteryReaderWorker {
@@ -58,7 +58,7 @@ final class MetricsCollector: Sendable {
     func memory() async -> MemoryStats { await memoryReader.read() }
     func network() async -> NetworkStats { await networkReader.read() }
     func disk() async -> DiskStats { await diskReader.read() }
-    func storage() async -> StorageStats { await storageReader.read() }
+    func storage() async -> StorageInventory { await storageReader.read() }
     func battery() async -> BatteryStats? { await batteryReader.read() }
     func thermal() async -> ThermalStats { await thermalReader.read() }
 
@@ -75,6 +75,7 @@ final class MetricsCollector: Sendable {
 final class SystemMonitor {
     private(set) var metrics = SystemMetrics()
     private(set) var histories = MetricHistories()
+    private(set) var volumes: [VolumeSnapshot] = []
     private(set) var machineInfo = MachineInfoReader().read()
     private(set) var lastUpdated: Date?
     private let collector = MetricsCollector()
@@ -140,7 +141,10 @@ final class SystemMonitor {
         }
         if let thermal = await thermal { metrics.thermal = thermal }
         if cycle.isMultiple(of: 5), defaults.bool(forKey: SettingsKey.monitorBattery) { metrics.battery = await battery }
-        if let storage = await storage { metrics.storage = storage }
+        if let storage = await storage {
+            metrics.storage = storage.primary
+            volumes = storage.volumes
+        }
         lastUpdated = .now
     }
 
@@ -156,6 +160,22 @@ final class SystemMonitor {
                 self.start()
             }
         })
+        for name in [
+            NSWorkspace.didMountNotification,
+            NSWorkspace.didUnmountNotification,
+            NSWorkspace.didRenameVolumeNotification
+        ] {
+            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in await self?.refreshStorage() }
+            })
+        }
+    }
+
+    private func refreshStorage() async {
+        let storage = await collector.storage()
+        guard !Task.isCancelled else { return }
+        metrics.storage = storage.primary
+        volumes = storage.volumes
     }
 
     private func observeMemoryPressure() {

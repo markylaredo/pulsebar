@@ -10,8 +10,8 @@ struct SystemExplorerView: View {
                     .tag(SystemExplorerDestination.overview)
                 Label("Processes", systemImage: "list.bullet.rectangle")
                     .tag(SystemExplorerDestination.processes)
-                Label("Performance", systemImage: "chart.xyaxis.line")
-                    .tag(SystemExplorerDestination.performance)
+                Label("Storage", systemImage: "internaldrive")
+                    .tag(SystemExplorerDestination.storage)
             }
             .listStyle(.sidebar)
             .navigationTitle("PulseBar")
@@ -22,8 +22,8 @@ struct SystemExplorerView: View {
                 OverviewView()
             case .processes:
                 ProcessListView()
-            case .performance:
-                PerformanceView()
+            case .storage:
+                StorageView()
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -33,7 +33,7 @@ struct SystemExplorerView: View {
 private enum SystemExplorerDestination: Hashable {
     case overview
     case processes
-    case performance
+    case storage
 }
 
 struct OverviewView: View {

@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let monitor = SystemMonitor()
 
     private var statusBarController: StatusBarController?
+    private var overviewWindowController: OverviewWindowController?
     private var settingsWindowController: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -14,10 +15,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        let overviewWindowController = OverviewWindowController(monitor: monitor)
+        self.overviewWindowController = overviewWindowController
         let settingsWindowController = SettingsWindowController(monitor: monitor)
         self.settingsWindowController = settingsWindowController
         statusBarController = StatusBarController(
             monitor: monitor,
+            openOverview: { [weak overviewWindowController] in
+                overviewWindowController?.show()
+            },
             openSettings: { [weak settingsWindowController] in
                 settingsWindowController?.show()
             }

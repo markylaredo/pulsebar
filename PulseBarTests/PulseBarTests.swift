@@ -51,6 +51,8 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(MetricFormatter.compactRate(420_000), "420K")
         XCTAssertEqual(MetricFormatter.count(8_704_999), "8,704,999")
         XCTAssertEqual(MetricFormatter.packetRate(1.6), "2 pkt/s")
+        XCTAssertEqual(MetricFormatter.uptime(3 * 86_400 + 14 * 3_600), "3d 14h")
+        XCTAssertEqual(MetricFormatter.uptime(5 * 3_600 + 32 * 60), "5h 32m")
     }
 
     func testActivityMonitorNetworkAccounting() {

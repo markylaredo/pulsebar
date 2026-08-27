@@ -47,6 +47,17 @@ enum MetricFormatter {
         "\(Int((min(max(value, 0), 1) * 100).rounded()))%"
     }
 
+    static func uptime(_ seconds: TimeInterval) -> String {
+        let totalMinutes = max(0, Int(seconds)) / 60
+        let days = totalMinutes / (24 * 60)
+        let hours = (totalMinutes / 60) % 24
+        let minutes = totalMinutes % 60
+
+        if days > 0 { return "\(days)d \(hours)h" }
+        if hours > 0 { return "\(hours)h \(minutes)m" }
+        return "\(minutes)m"
+    }
+
     private static func scaled(_ value: Double, suffix: String) -> String {
         guard value >= 1_000 else { return "\(Int(value)) B\(suffix)" }
         let exponent = min(Int(log(value) / log(1_000)), byteUnits.count - 1)

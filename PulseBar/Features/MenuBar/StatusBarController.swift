@@ -5,6 +5,7 @@ import SwiftUI
 @MainActor
 final class StatusBarController: NSObject, NSPopoverDelegate {
     private let monitor: SystemMonitor
+    private let openOverview: () -> Void
     private let openSettings: () -> Void
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
@@ -15,8 +16,13 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     private var defaultsObserver: NSObjectProtocol?
     private var globalShortcutController: GlobalShortcutController?
 
-    init(monitor: SystemMonitor, openSettings: @escaping () -> Void) {
+    init(
+        monitor: SystemMonitor,
+        openOverview: @escaping () -> Void,
+        openSettings: @escaping () -> Void
+    ) {
         self.monitor = monitor
+        self.openOverview = openOverview
         self.openSettings = openSettings
         labelModel = StatusItemLabelModel(presentation: .make(metrics: monitor.metrics))
         super.init()
@@ -56,6 +62,10 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         popover.contentViewController = NSHostingController(
             rootView: DashboardRootView(
                 monitor: monitor,
+                openOverview: { [weak self] in
+                    self?.popover.performClose(nil)
+                    self?.openOverview()
+                },
                 openSettings: { [weak self] in
                     self?.openSettings()
                 },
@@ -243,12 +253,14 @@ private final class PassthroughHostingView<Content: View>: NSHostingView<Content
 
 private struct DashboardRootView: View {
     let monitor: SystemMonitor
+    let openOverview: () -> Void
     let openSettings: () -> Void
     let dashboardPinChanged: (Bool) -> Void
     @AppStorage(SettingsKey.appearance) private var appearance = AppAppearance.system.rawValue
 
     var body: some View {
         DashboardView(
+            openOverviewAction: openOverview,
             openSettingsAction: openSettings,
             dashboardPinAction: dashboardPinChanged
         )

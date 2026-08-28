@@ -1,6 +1,13 @@
 import ServiceManagement
 import SwiftUI
 
+enum AppLinks {
+    static let github = URL(string: "https://github.com/markylaredo/pulsebar")!
+    static let support = URL(string: "https://github.com/markylaredo/pulsebar/issues")!
+    static let buyMeACoffee = URL(string: "https://buymeacoffee.com/markanthontf")!
+    static let license = URL(string: "https://github.com/markylaredo/pulsebar/blob/master/LICENSE")!
+}
+
 enum SettingsKey {
     static let refreshPreset = "refreshPreset"
     static let appearance = "appearance"

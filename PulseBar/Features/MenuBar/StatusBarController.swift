@@ -36,7 +36,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         updateGlobalShortcut()
         observeMetrics()
         observeSettings()
-        updateStatusItem()
+        updateStatusItem(animated: false)
     }
 
     private func configureStatusItem() {
@@ -129,19 +129,26 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         globalShortcutController?.register(DashboardShortcut(storageValue: storedValue))
     }
 
-    private func updateStatusItem() {
+    private func updateStatusItem(animated: Bool) {
         guard let button = statusItem.button else { return }
         let presentation = MenuBarPresentation.make(metrics: monitor.metrics)
         button.toolTip = presentation.accessibilityLabel
         button.setAccessibilityLabel(presentation.accessibilityLabel)
 
-        // Status items are cloned into every active menu bar by AppKit. Animating
-        // each once-per-second value change keeps those offscreen layers rendering
-        // continuously, so publish the current values in a non-animated transaction.
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            labelModel.presentation = presentation
+        // A short opacity transition keeps updates readable without the sustained
+        // display-link cost of SwiftUI's rolling numericText transition.
+        let shouldAnimate = animated
+            && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if shouldAnimate {
+            withAnimation(.easeOut(duration: 0.14)) {
+                labelModel.presentation = presentation
+            }
+        } else {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                labelModel.presentation = presentation
+            }
         }
         scheduleStatusItemLength(for: presentation)
     }
@@ -189,7 +196,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
             // those publications so AppKit redraws every display's clone once.
             do { try await Task.sleep(for: .milliseconds(75)) } catch { return }
             guard !Task.isCancelled, let self else { return }
-            self.updateStatusItem()
+            self.updateStatusItem(animated: true)
         }
     }
 
@@ -203,7 +210,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
                 self?.statusItemUpdateTask?.cancel()
                 self?.updatePopoverBehavior()
                 self?.updateGlobalShortcut()
-                self?.updateStatusItem()
+                self?.updateStatusItem(animated: false)
             }
         }
     }
@@ -240,6 +247,7 @@ private struct StatusItemLabel: View {
                             }
                             Text(part.prefix)
                             Text(part.value)
+                                .contentTransition(.opacity)
                         }
                         .frame(
                             width: model.presentation.widthBehavior == .fixed ? part.reservedWidth : nil,

@@ -12,7 +12,7 @@
 <br>
 
 <p align="center">
-  <img src="docs/screenshots/menu-bar.png" width="900" alt="PulseBar live statistics in the macOS menu bar">
+  <img src="docs/screenshots/menu-bar.gif" width="900" alt="PulseBar live statistics updating in the macOS menu bar">
 </p>
 
 <p align="center">

@@ -37,12 +37,20 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(CounterMath.rate(previous: 1_000_000, current: 4_000_000, elapsed: 1), 3_000_000)
         XCTAssertNil(CounterMath.rate(previous: 4_000_000, current: 1_000_000, elapsed: 1))
         XCTAssertNil(CounterMath.rate(previous: 1, current: 2, elapsed: 0))
+        XCTAssertNil(CounterMath.rate(previous: 1, current: 2, elapsed: .infinity))
+        XCTAssertNil(CounterMath.rate(previous: 1, current: 2, elapsed: .nan))
     }
 
     func testMetricHistoryIsBounded() {
         var history = MetricHistory(capacity: 3)
         [1.0, 2.0, 3.0, 4.0].forEach { history.append($0) }
         XCTAssertEqual(history.samples, [2, 3, 4])
+    }
+
+    func testMetricHistorySanitizesInvalidSamples() {
+        var history = MetricHistory(capacity: 4)
+        [-1, .infinity, .nan, 2].forEach { history.append($0) }
+        XCTAssertEqual(history.samples, [0, 0, 0, 2])
     }
 
     func testDashboardOpacityLevelIsNormalizedAndClamped() {
@@ -196,6 +204,81 @@ final class PulseBarTests: XCTestCase {
         XCTAssertTrue(socket.isListening)
         XCTAssertTrue(NetworkConnectionFilter.listening.includes(socket))
         XCTAssertFalse(NetworkConnectionFilter.established.includes(socket))
+    }
+
+    func testShareSafeIPAddressClassification() {
+        XCTAssertTrue(ShareSafeIPAddress.contains("192.168.1.42"))
+        XCTAssertTrue(ShareSafeIPAddress.contains("172.31.4.8"))
+        XCTAssertTrue(ShareSafeIPAddress.contains("10.0.0.5"))
+        XCTAssertTrue(ShareSafeIPAddress.contains("100.64.0.12"))
+        XCTAssertTrue(ShareSafeIPAddress.contains("fe80::1%en0"))
+        XCTAssertTrue(ShareSafeIPAddress.contains("fd00::12"))
+        XCTAssertFalse(ShareSafeIPAddress.contains("8.8.8.8"))
+        XCTAssertFalse(ShareSafeIPAddress.contains("2606:4700:4700::1111"))
+    }
+
+    func testSystemReportExcludesSensitiveAndPublicNetworkValues() {
+        let system = SystemInformationSnapshot(
+            hardware: HardwareInformation(
+                modelName: "MacBook Pro",
+                modelIdentifier: "MacBookPro99,1",
+                chip: "Apple Test Chip",
+                architecture: "arm64",
+                physicalMemory: 32 * 1_024 * 1_024 * 1_024,
+                logicalProcessorCount: 10
+            ),
+            operatingSystem: OperatingSystemInformation(
+                version: "26.1",
+                build: "25B123",
+                kernel: "Darwin 25.1.0",
+                computerName: "Private Person's Mac",
+                hostname: "private-person.local",
+                bootDate: .distantPast
+            )
+        )
+        let volume = VolumeSnapshot(
+            id: "private-volume-id",
+            name: "Macintosh HD",
+            mountPath: "/Users/private-person",
+            totalCapacity: 1_000,
+            availableCapacity: 400,
+            filesystem: "APFS",
+            isReadOnly: false,
+            isLocal: true,
+            isInternal: true,
+            isRemovable: false,
+            isPrimary: true
+        )
+        let interface = NetworkInterfaceSnapshot(
+            id: "en0",
+            displayName: "Wi-Fi",
+            kind: .wifi,
+            ipv4Addresses: ["8.8.8.8", "192.168.1.42"],
+            ipv6Addresses: ["2606:4700:4700::1111"],
+            macAddress: "00:11:22:33:44:55",
+            isUp: true,
+            isRunning: true,
+            isPrimary: true
+        )
+
+        let report = SystemReportFormatter.report(
+            system: system,
+            displays: [],
+            battery: nil,
+            volumes: [volume],
+            interfaces: [interface],
+            uptime: 3 * 86_400 + 14 * 3_600
+        )
+
+        XCTAssertTrue(report.contains("PulseBar System Report"))
+        XCTAssertTrue(report.contains("192.168.1.42"))
+        XCTAssertTrue(report.contains("3d 14h"))
+        XCTAssertFalse(report.contains("Private Person"))
+        XCTAssertFalse(report.contains("private-person.local"))
+        XCTAssertFalse(report.contains("/Users/private-person"))
+        XCTAssertFalse(report.contains("8.8.8.8"))
+        XCTAssertFalse(report.contains("2606:4700:4700::1111"))
+        XCTAssertFalse(report.contains("00:11:22:33:44:55"))
     }
 
     func testActivityMonitorNetworkAccounting() {

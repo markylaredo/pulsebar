@@ -40,7 +40,7 @@ enum CounterMath {
     }
 
     static func rate(previous: UInt64, current: UInt64, elapsed: TimeInterval) -> Double? {
-        guard elapsed > 0, current >= previous else { return nil }
+        guard elapsed.isFinite, elapsed > 0, current >= previous else { return nil }
         return Double(current - previous) / elapsed
     }
 }

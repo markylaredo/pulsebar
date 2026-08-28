@@ -59,3 +59,18 @@ curl -fsSL https://raw.githubusercontent.com/markylaredo/pulsebar/master/install
 ```
 
 Keep the asset names unchanged. GitHub routes the installer to those files through its stable `/releases/latest/download/` URLs.
+
+## Release checklist
+
+- [ ] Debug tests pass and Debug/Release builds succeed without new PulseBar warnings.
+- [ ] Version, build number, app icon, signing identity, and notarization settings are correct.
+- [ ] Menu-bar metrics and the dashboard update at each refresh preset.
+- [ ] The System Explorer can be opened, closed, and reopened repeatedly.
+- [ ] Overview, Processes, Performance, Network, Storage, and System pages update without duplicate work.
+- [ ] Process exit, socket closure, and external-volume removal clear stale selections safely.
+- [ ] Sleep/wake resumes without CPU, disk, or network rate spikes.
+- [ ] External display and storage connect/disconnect behavior is checked.
+- [ ] Minimum-size, normal, large, light, and dark layouts are checked.
+- [ ] VoiceOver labels for menu-bar metrics, controls, and performance charts are useful.
+- [ ] Copy System Report contains no host name, computer name, mount path, MAC address, serial identifier, or public IP address.
+- [ ] The packaged app launches cleanly and the public installer checksum/signature verification succeeds.

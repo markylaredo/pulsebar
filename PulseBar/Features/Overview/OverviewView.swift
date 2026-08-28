@@ -16,6 +16,8 @@ struct SystemExplorerView: View {
                     .tag(SystemExplorerDestination.network)
                 Label("Storage", systemImage: "internaldrive")
                     .tag(SystemExplorerDestination.storage)
+                Label("System", systemImage: "desktopcomputer")
+                    .tag(SystemExplorerDestination.system)
             }
             .listStyle(.sidebar)
             .navigationTitle("PulseBar")
@@ -32,6 +34,8 @@ struct SystemExplorerView: View {
                 NetworkView()
             case .storage:
                 StorageView()
+            case .system:
+                SystemInformationView()
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -44,6 +48,7 @@ private enum SystemExplorerDestination: Hashable {
     case performance
     case network
     case storage
+    case system
 }
 
 struct OverviewView: View {

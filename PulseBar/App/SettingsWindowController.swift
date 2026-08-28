@@ -5,15 +5,18 @@ import SwiftUI
 final class SettingsWindowController: NSWindowController {
     init(monitor: SystemMonitor) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 390),
-            styleMask: [.titled, .closable],
+            contentRect: NSRect(x: 0, y: 0, width: 620, height: 520),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "PulseBar Settings"
+        window.contentMinSize = NSSize(width: 560, height: 460)
+        window.tabbingMode = .disallowed
         window.isReleasedWhenClosed = false
-        window.center()
         window.contentViewController = NSHostingController(rootView: SettingsRootView(monitor: monitor))
+        window.setContentSize(NSSize(width: 620, height: 520))
+        window.center()
         super.init(window: window)
     }
 

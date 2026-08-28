@@ -228,7 +228,7 @@ private struct StatusItemLabel: View {
                 Image(systemName: "waveform.path.ecg")
                 Text("PulseBar")
             } else {
-                HStack(spacing: 3) {
+                HStack(spacing: 1) {
                     ForEach(Array(model.presentation.parts.enumerated()), id: \.element.id) { index, part in
                         if index > 0 {
                             Text("·")

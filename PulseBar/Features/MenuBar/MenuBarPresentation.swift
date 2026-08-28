@@ -9,7 +9,7 @@ struct MenuBarPresentation {
     var preferredWidth: CGFloat {
         guard !parts.isEmpty else { return 88 }
         let metricsWidth = parts.reduce(CGFloat.zero) { $0 + $1.reservedWidth }
-        let separatorsWidth = CGFloat(max(0, parts.count - 1)) * 10
+        let separatorsWidth = CGFloat(max(0, parts.count - 1)) * 6
         return ceil(metricsWidth + separatorsWidth + 12)
     }
 
@@ -79,8 +79,8 @@ struct MenuBarMetricPart: Identifiable {
         switch id {
         case .cpu: prefix.isEmpty ? 50 : 82
         case .memory: prefix.isEmpty ? 50 : 64
-        case .download, .upload: 62
-        case .diskRead, .diskWrite: 66
+        case .download, .upload: 56
+        case .diskRead, .diskWrite: 62
         case .battery: 54
         }
     }

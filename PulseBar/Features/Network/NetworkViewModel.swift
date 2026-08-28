@@ -10,8 +10,14 @@ final class NetworkViewModel {
     private(set) var lastUpdated: Date?
 
     private let provider = NetworkInspectorProvider()
+    private var isRunning = false
+    private var isRefreshing = false
 
     func run() async {
+        guard !isRunning else { return }
+        isRunning = true
+        defer { isRunning = false }
+
         while !Task.isCancelled {
             await refresh()
             do {
@@ -23,6 +29,10 @@ final class NetworkViewModel {
     }
 
     func refresh() async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+
         let snapshot = await provider.snapshot()
         guard !Task.isCancelled else { return }
         if connections != snapshot.connections { connections = snapshot.connections }

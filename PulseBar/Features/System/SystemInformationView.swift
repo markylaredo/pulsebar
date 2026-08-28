@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SystemInformationView: View {
     @Environment(SystemMonitor.self) private var monitor
+    @Environment(SystemExplorerLifecycle.self) private var lifecycle
     @State private var model = SystemInformationViewModel()
     @State private var reportWasCopied = false
 
@@ -36,7 +37,10 @@ struct SystemInformationView: View {
         .defaultScrollAnchor(.top)
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle("System")
-        .task { await model.run() }
+        .task(id: lifecycle.isVisible) {
+            guard lifecycle.isVisible else { return }
+            await model.run()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             model.refreshDisplays()
         }

@@ -2,15 +2,22 @@ import AppKit
 import CoreGraphics
 import Darwin
 import Foundation
+import SystemConfiguration
 
 actor SystemInformationReader {
+    static let shared = SystemInformationReader()
+
+    private var cachedSnapshot: SystemInformationSnapshot?
+
     func read() -> SystemInformationSnapshot {
+        if let cachedSnapshot { return cachedSnapshot }
+
         let processInfo = ProcessInfo.processInfo
-        let computerName = Host.current().localizedName ?? "Mac"
+        let computerName = SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "Mac"
         let modelIdentifier = sysctlString("hw.model") ?? "Unavailable"
         let version = processInfo.operatingSystemVersion
 
-        return SystemInformationSnapshot(
+        let snapshot = SystemInformationSnapshot(
             hardware: HardwareInformation(
                 modelName: modelName(computerName: computerName, identifier: modelIdentifier),
                 modelIdentifier: modelIdentifier,
@@ -24,10 +31,12 @@ actor SystemInformationReader {
                 build: sysctlString("kern.osversion") ?? "Unavailable",
                 kernel: sysctlString("kern.osrelease").map { "Darwin \($0)" } ?? "Unavailable",
                 computerName: computerName,
-                hostname: processInfo.hostName,
+                hostname: localHostname(),
                 bootDate: Date(timeIntervalSinceNow: -processInfo.systemUptime)
             )
         )
+        cachedSnapshot = snapshot
+        return snapshot
     }
 
     private var architecture: String {
@@ -53,6 +62,12 @@ actor SystemInformationReader {
         if identifier.hasPrefix("MacPro") { return "Mac Pro" }
         if identifier.hasPrefix("iMac") { return "iMac" }
         return "Mac"
+    }
+
+    private func localHostname() -> String {
+        var buffer = [CChar](repeating: 0, count: Int(MAXHOSTNAMELEN) + 1)
+        guard gethostname(&buffer, buffer.count) == 0 else { return "Unavailable" }
+        return String(cString: buffer)
     }
 
     private func sysctlString(_ name: String) -> String? {

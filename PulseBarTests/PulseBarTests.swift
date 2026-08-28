@@ -37,12 +37,20 @@ final class PulseBarTests: XCTestCase {
         XCTAssertEqual(CounterMath.rate(previous: 1_000_000, current: 4_000_000, elapsed: 1), 3_000_000)
         XCTAssertNil(CounterMath.rate(previous: 4_000_000, current: 1_000_000, elapsed: 1))
         XCTAssertNil(CounterMath.rate(previous: 1, current: 2, elapsed: 0))
+        XCTAssertNil(CounterMath.rate(previous: 1, current: 2, elapsed: .infinity))
+        XCTAssertNil(CounterMath.rate(previous: 1, current: 2, elapsed: .nan))
     }
 
     func testMetricHistoryIsBounded() {
         var history = MetricHistory(capacity: 3)
         [1.0, 2.0, 3.0, 4.0].forEach { history.append($0) }
         XCTAssertEqual(history.samples, [2, 3, 4])
+    }
+
+    func testMetricHistorySanitizesInvalidSamples() {
+        var history = MetricHistory(capacity: 4)
+        [-1, .infinity, .nan, 2].forEach { history.append($0) }
+        XCTAssertEqual(history.samples, [0, 0, 0, 2])
     }
 
     func testDashboardOpacityLevelIsNormalizedAndClamped() {

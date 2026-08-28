@@ -166,7 +166,13 @@ struct PerformanceDetailView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 22) {
             metricHeader(title: title, symbol: symbol, current: current, subtitle: subtitle, color: color)
-            PerformanceChart(samples: samples, color: color, fixedMaximum: fixedMaximum)
+            PerformanceChart(
+                samples: samples,
+                color: color,
+                fixedMaximum: fixedMaximum,
+                accessibilityLabel: "\(title) history",
+                accessibilityValue: "Current \(current). \(peak)."
+            )
                 .frame(height: 250)
             chartFooter(sampleCount: samples.count, trailing: peak)
             Divider()
@@ -199,7 +205,9 @@ struct PerformanceDetailView: View {
                 samples: primarySamples,
                 color: primaryColor,
                 secondarySamples: secondarySamples,
-                secondaryColor: secondaryColor
+                secondaryColor: secondaryColor,
+                accessibilityLabel: "\(title) history",
+                accessibilityValue: "Current \(primaryLabel) \(MetricFormatter.rate(primaryValue)), \(secondaryLabel) \(MetricFormatter.rate(secondaryValue))."
             )
             .frame(height: 250)
             chartFooter(

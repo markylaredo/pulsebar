@@ -59,6 +59,10 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         popover.animates = true
         popover.contentSize = NSSize(width: 360, height: 570)
         popover.delegate = self
+    }
+
+    private func installPopoverContentIfNeeded() {
+        guard popover.contentViewController == nil else { return }
         popover.contentViewController = NSHostingController(
             rootView: DashboardRootView(
                 monitor: monitor,
@@ -82,6 +86,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         if popover.isShown {
             popover.performClose(sender)
         } else {
+            installPopoverContentIfNeeded()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             button.state = .on
             NSApplication.shared.activate()
@@ -90,6 +95,23 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
 
     func popoverDidClose(_ notification: Notification) {
         statusItem.button?.state = .off
+        // Swift Charts owns display-link threads while mounted. Release the hidden
+        // dashboard hierarchy so a closed popover consumes no rendering budget.
+        popover.contentViewController = nil
+    }
+
+    func shutdown() {
+        statusItemUpdateTask?.cancel()
+        statusItemLengthTask?.cancel()
+        statusItemUpdateTask = nil
+        statusItemLengthTask = nil
+        if let defaultsObserver {
+            NotificationCenter.default.removeObserver(defaultsObserver)
+            self.defaultsObserver = nil
+        }
+        globalShortcutController = nil
+        popover.performClose(nil)
+        popover.contentViewController = nil
     }
 
     private func updatePopoverBehavior() {
@@ -113,10 +135,10 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         button.toolTip = presentation.accessibilityLabel
         button.setAccessibilityLabel(presentation.accessibilityLabel)
 
-        // AppKit redirects custom status-item drawing into every display's menu bar.
-        // Avoid multiplying SwiftUI's numeric transition work across those clones.
+        // Rolling number transitions are opt-in because AppKit clones custom
+        // status-item content into every active menu bar, multiplying render work.
         let shouldAnimate = animated
-            && NSScreen.screens.count == 1
+            && UserDefaults.standard.bool(forKey: SettingsKey.smoothMenuBarTransitions)
             && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if shouldAnimate {
             withAnimation(.easeInOut(duration: 0.24)) {
@@ -214,7 +236,7 @@ private struct StatusItemLabel: View {
                 Image(systemName: "waveform.path.ecg")
                 Text("PulseBar")
             } else {
-                HStack(spacing: 3) {
+                HStack(spacing: 1) {
                     ForEach(Array(model.presentation.parts.enumerated()), id: \.element.id) { index, part in
                         if index > 0 {
                             Text("·")

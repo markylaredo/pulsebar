@@ -34,6 +34,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        monitor.shutdown()
+        statusBarController?.shutdown()
+    }
+
     private func unregisterLoginItemAndQuit() {
         if SMAppService.mainApp.status == .enabled {
             try? SMAppService.mainApp.unregister()

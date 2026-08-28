@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct NetworkView: View {
+    @Environment(SystemExplorerLifecycle.self) private var lifecycle
     @State private var model = NetworkViewModel()
     @State private var searchText = ""
     @State private var filter = NetworkConnectionFilter.all
@@ -42,7 +43,10 @@ struct NetworkView: View {
                 .disabled(model.isLoading)
             }
         }
-        .task { await model.run() }
+        .task(id: lifecycle.isVisible) {
+            guard lifecycle.isVisible else { return }
+            await model.run()
+        }
         .onChange(of: model.connections.map(\.id)) { _, _ in reconcileSelection() }
         .onChange(of: searchText) { _, _ in reconcileSelection() }
         .onChange(of: filter) { _, _ in reconcileSelection() }

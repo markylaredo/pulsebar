@@ -10,10 +10,15 @@ final class SystemInformationViewModel {
     private(set) var interfaces: [NetworkInterfaceSnapshot] = []
     private(set) var isLoading = true
 
-    private let systemReader = SystemInformationReader()
+    private let systemReader = SystemInformationReader.shared
     private let networkProvider = NetworkInspectorProvider()
+    private var isRunning = false
 
     func run() async {
+        guard !isRunning else { return }
+        isRunning = true
+        defer { isRunning = false }
+
         if system == nil {
             async let systemSnapshot = systemReader.read()
             async let networkInterfaces = networkProvider.interfaces()

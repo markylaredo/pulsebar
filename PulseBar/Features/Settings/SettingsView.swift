@@ -582,7 +582,7 @@ private struct AboutView: View {
             Text("© \(copyrightYear) Mark Anthony Laredo")
             Text("•")
                 .accessibilityHidden(true)
-            Link("License", destination: AppLinks.license)
+            Link("PolyForm Noncommercial", destination: AppLinks.license)
                 .accessibilityHint("Opens the PulseBar license in your web browser")
         }
         .font(.caption)

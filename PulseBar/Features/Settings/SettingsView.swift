@@ -398,7 +398,7 @@ private struct AboutView: View {
             VStack(spacing: 5) {
                 Text("About the creator")
                     .font(.headline)
-                Text("Created by Mark Anthony with a focus on practical, reliable, and thoughtfully designed software.")
+                Text("Created by Mark Anthony Laredo with a focus on practical, reliable, and thoughtfully designed software.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

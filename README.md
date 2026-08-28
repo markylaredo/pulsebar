@@ -129,6 +129,26 @@ xcodebuild -project PulseBar.xcodeproj \
   CODE_SIGNING_ALLOWED=NO test
 ```
 
+## Architecture
+
+PulseBar keeps lightweight system sampling separate from detailed inspectors:
+
+| Component | Responsibility and lifecycle |
+| --- | --- |
+| `SystemMonitor` | The single app-owned source for CPU, memory, disk/network throughput, thermal state, battery, storage, and bounded chart histories. It remains active for menu-bar metrics and resets rate baselines after wake. |
+| `ProcessMonitor` | Actor-isolated process enumeration and PID/start-time-aware metadata caching. It runs only while the Processes page is visible. |
+| `NetworkInspectorProvider` | Actor-isolated interface and socket enumeration. Full socket scans run only while the Network page is visible; System Information requests interfaces only. |
+| `StorageReader` | Mounted-volume metadata with APFS implementation volumes removed. Refreshes are event-driven with a slow recovery refresh. |
+| `SystemInformationReader` | Shared, cached hardware and operating-system metadata. Displays refresh on display events; battery, storage, and network values reuse dynamic providers. |
+
+SwiftUI view tasks own the detailed process, network, and system-interface loops, so navigating away cancels expensive enumeration. `MetricHistory` bounds every live history to 180 samples.
+
+### Distribution and privacy
+
+PulseBar is currently intended for direct distribution. Process inspection, cross-process socket ownership, and process termination use supported macOS `libproc` interfaces but do not fit the restrictions of the Mac App Sandbox. The project therefore does not claim Mac App Store compatibility or request Full Disk Access, Accessibility, Screen Recording, Location, or other unrelated permissions.
+
+Metrics stay on the Mac. PulseBar has no telemetry, analytics, remote metric storage, DNS history, or background database. The copied system report deliberately excludes computer and host names, mount paths, MAC addresses, hardware serial identifiers, and public IP addresses.
+
 ## A note about accuracy
 
 PulseBar reads macOS system counters through Mach APIs, IOKit, and other public system interfaces. Its accounting follows Activity Monitor where practical, although live values can differ slightly when the two apps sample at different moments.

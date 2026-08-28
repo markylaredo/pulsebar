@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ProcessListView: View {
+    @Environment(SystemExplorerLifecycle.self) private var lifecycle
     @State private var model = ProcessViewModel()
     @State private var searchText = ""
     @State private var selection: ProcessIdentity?
@@ -27,7 +28,10 @@ struct ProcessListView: View {
         }
         .searchable(text: $searchText, placement: .toolbar, prompt: "Search processes")
         .navigationTitle("Processes")
-        .task { await model.run() }
+        .task(id: lifecycle.isVisible) {
+            guard lifecycle.isVisible else { return }
+            await model.run()
+        }
         .onChange(of: model.processes.map(\.id)) { _, identities in
             if let selection, !identities.contains(selection) {
                 self.selection = nil

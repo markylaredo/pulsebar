@@ -7,19 +7,25 @@ struct PerformanceChart: View {
     let secondarySamples: [Double]
     let secondaryColor: Color?
     let fixedMaximum: Double?
+    let accessibilityLabel: String
+    let accessibilityValue: String
 
     init(
         samples: [Double],
         color: Color,
         secondarySamples: [Double] = [],
         secondaryColor: Color? = nil,
-        fixedMaximum: Double? = nil
+        fixedMaximum: Double? = nil,
+        accessibilityLabel: String = "Performance history",
+        accessibilityValue: String = "No samples"
     ) {
         self.samples = samples
         self.color = color
         self.secondarySamples = secondarySamples
         self.secondaryColor = secondaryColor
         self.fixedMaximum = fixedMaximum
+        self.accessibilityLabel = accessibilityLabel
+        self.accessibilityValue = accessibilityValue
     }
 
     var body: some View {
@@ -60,7 +66,9 @@ struct PerformanceChart: View {
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .transaction { $0.animation = nil }
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(accessibilityValue)
     }
 
     private var resolvedMaximum: Double {

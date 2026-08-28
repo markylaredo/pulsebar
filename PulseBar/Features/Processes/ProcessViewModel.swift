@@ -10,8 +10,14 @@ final class ProcessViewModel {
     private(set) var actionMessage: String?
 
     private let monitor = ProcessMonitor()
+    private var isRunning = false
+    private var isRefreshing = false
 
     func run() async {
+        guard !isRunning else { return }
+        isRunning = true
+        defer { isRunning = false }
+
         while !Task.isCancelled {
             await refresh()
             do {
@@ -38,6 +44,10 @@ final class ProcessViewModel {
     }
 
     private func refresh() async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+
         let snapshots = await monitor.sample()
         guard !Task.isCancelled else { return }
         processes = snapshots

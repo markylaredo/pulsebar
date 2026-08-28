@@ -80,6 +80,8 @@ final class SystemMonitor {
     private(set) var lastUpdated: Date?
     private let collector = MetricsCollector()
     private var monitoringTask: Task<Void, Never>?
+    private var storageRefreshTask: Task<Void, Never>?
+    private var isRefreshingStorage = false
     private var memoryPressureSource: DispatchSourceMemoryPressure?
     private var observers: [NSObjectProtocol] = []
 
@@ -98,10 +100,26 @@ final class SystemMonitor {
         }
     }
 
-    func restart() {
+    func stop() {
         monitoringTask?.cancel()
         monitoringTask = nil
+    }
+
+    func restart() {
+        stop()
         start()
+    }
+
+    func shutdown() {
+        stop()
+        storageRefreshTask?.cancel()
+        storageRefreshTask = nil
+        memoryPressureSource?.cancel()
+        memoryPressureSource = nil
+
+        let center = NSWorkspace.shared.notificationCenter
+        observers.forEach(center.removeObserver)
+        observers.removeAll()
     }
 
     private func runLoop() async {
@@ -122,8 +140,7 @@ final class SystemMonitor {
         async let memory = cycle.isMultiple(of: 2) && defaults.bool(forKey: SettingsKey.monitorMemory) ? collector.memory() : nil
         async let disk = cycle.isMultiple(of: 2) && defaults.bool(forKey: SettingsKey.monitorDisk) ? collector.disk() : nil
         async let thermal = cycle.isMultiple(of: 3) && defaults.bool(forKey: SettingsKey.monitorThermal) ? collector.thermal() : nil
-        async let battery = cycle.isMultiple(of: 5) && defaults.bool(forKey: SettingsKey.monitorBattery) ? collector.battery() : nil
-        async let storage = cycle.isMultiple(of: 30) ? collector.storage() : nil
+        async let battery = cycle.isMultiple(of: 15) && defaults.bool(forKey: SettingsKey.monitorBattery) ? collector.battery() : nil
 
         if let cpu = await cpu { metrics.cpu = cpu; histories.cpu.append(cpu.totalUsage) }
         if let memory = await memory { metrics.memory = memory; histories.memory.append(memory.usage) }
@@ -140,18 +157,21 @@ final class SystemMonitor {
             histories.diskWrite.append(disk.writeRate)
         }
         if let thermal = await thermal { metrics.thermal = thermal }
-        if cycle.isMultiple(of: 5), defaults.bool(forKey: SettingsKey.monitorBattery) { metrics.battery = await battery }
-        if let storage = await storage {
-            metrics.storage = storage.primary
-            volumes = storage.volumes
-        }
+        if cycle.isMultiple(of: 15), defaults.bool(forKey: SettingsKey.monitorBattery) { metrics.battery = await battery }
+        // Volume metadata is primarily event-driven. This slow fallback recovers
+        // if macOS does not deliver a mount notification.
+        if cycle.isMultiple(of: 300) { await refreshStorage() }
         lastUpdated = .now
     }
 
     private func observeSleepAndWake() {
         let center = NSWorkspace.shared.notificationCenter
         observers.append(center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.monitoringTask?.cancel(); self?.monitoringTask = nil }
+            Task { @MainActor in
+                self?.stop()
+                self?.storageRefreshTask?.cancel()
+                self?.storageRefreshTask = nil
+            }
         })
         observers.append(center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in
@@ -166,12 +186,26 @@ final class SystemMonitor {
             NSWorkspace.didRenameVolumeNotification
         ] {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in await self?.refreshStorage() }
+                Task { @MainActor in self?.scheduleStorageRefresh() }
             })
         }
     }
 
+    private func scheduleStorageRefresh() {
+        storageRefreshTask?.cancel()
+        storageRefreshTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+            guard let self, !Task.isCancelled else { return }
+            await self.refreshStorage()
+            guard !Task.isCancelled else { return }
+            self.storageRefreshTask = nil
+        }
+    }
+
     private func refreshStorage() async {
+        guard !isRefreshingStorage else { return }
+        isRefreshingStorage = true
+        defer { isRefreshingStorage = false }
         let storage = await collector.storage()
         guard !Task.isCancelled else { return }
         metrics.storage = storage.primary

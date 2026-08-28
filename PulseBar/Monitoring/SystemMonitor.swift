@@ -239,6 +239,7 @@ final class SystemMonitor {
             SettingsKey.dashboardShortcut: DashboardShortcut.defaultValue.storageValue,
             SettingsKey.compactMenuBar: false,
             SettingsKey.menuBarWidthBehavior: MenuBarWidthBehavior.fixed.rawValue,
+            SettingsKey.smoothMenuBarTransitions: false,
             SettingsKey.showCPU: true,
             SettingsKey.showMemory: true,
             SettingsKey.showDownload: true,

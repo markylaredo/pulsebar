@@ -11,6 +11,7 @@ enum SettingsKey {
     static let dashboardShortcut = "dashboardShortcut"
     static let compactMenuBar = "compactMenuBar"
     static let menuBarWidthBehavior = "menuBarWidthBehavior"
+    static let smoothMenuBarTransitions = "smoothMenuBarTransitions"
     static let showCPU = "showCPU"
     static let showMemory = "showMemory"
     static let showDownload = "showDownload"

@@ -13,6 +13,7 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.dashboardShortcut) private var dashboardShortcut = DashboardShortcut.defaultValue.storageValue
     @AppStorage(SettingsKey.compactMenuBar) private var compactMenuBar = false
     @AppStorage(SettingsKey.menuBarWidthBehavior) private var menuBarWidthBehavior = MenuBarWidthBehavior.fixed.rawValue
+    @AppStorage(SettingsKey.smoothMenuBarTransitions) private var smoothMenuBarTransitions = false
     @AppStorage(SettingsKey.menuBarMetricOrder) private var storedMenuBarOrder = MenuBarMetric.defaultOrderValue
     @State private var menuBarOrder = MenuBarMetric.allCases
     @State private var draggedMenuBarMetric: MenuBarMetric?
@@ -104,6 +105,18 @@ struct SettingsView: View {
                      : "PulseBar expands and contracts to fit live values.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Toggle("Smooth metric transitions", isOn: $smoothMenuBarTransitions)
+                if smoothMenuBarTransitions {
+                    Label(
+                        "Animated number changes may increase PulseBar's CPU and GPU usage, especially with multiple displays.",
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel(
+                        "Performance note: Animated number changes may increase PulseBar's CPU and GPU usage, especially with multiple displays."
+                    )
+                }
                 Section("Displays") {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {

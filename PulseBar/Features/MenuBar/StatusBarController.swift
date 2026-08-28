@@ -135,12 +135,13 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         button.toolTip = presentation.accessibilityLabel
         button.setAccessibilityLabel(presentation.accessibilityLabel)
 
-        // A short opacity transition keeps updates readable without the sustained
-        // display-link cost of SwiftUI's rolling numericText transition.
+        // Rolling number transitions are opt-in because AppKit clones custom
+        // status-item content into every active menu bar, multiplying render work.
         let shouldAnimate = animated
+            && UserDefaults.standard.bool(forKey: SettingsKey.smoothMenuBarTransitions)
             && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if shouldAnimate {
-            withAnimation(.easeOut(duration: 0.14)) {
+            withAnimation(.easeInOut(duration: 0.24)) {
                 labelModel.presentation = presentation
             }
         } else {
@@ -247,7 +248,7 @@ private struct StatusItemLabel: View {
                             }
                             Text(part.prefix)
                             Text(part.value)
-                                .contentTransition(.opacity)
+                                .contentTransition(.numericText(value: part.numericValue))
                         }
                         .frame(
                             width: model.presentation.widthBehavior == .fixed ? part.reservedWidth : nil,
